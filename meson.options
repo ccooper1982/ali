@@ -1,0 +1,1 @@
+option('is_dev', type : 'boolean', value:true, description : 'True if development build')
