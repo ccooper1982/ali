@@ -10,6 +10,12 @@
 #include <ali/common.hpp>
 
 
+inline const fs::path BootMnt{"/mnt/boot"};
+inline const fs::path RootMnt{"/mnt"};
+inline const fs::path EfiMnt{"/mnt/boot/efi"};
+inline const fs::path FsTabPath{"/mnt/etc/fstab"};
+
+
 enum class PartitionStatus
 {
   None,

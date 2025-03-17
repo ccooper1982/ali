@@ -4,6 +4,7 @@
 #include <iostream>
 #include <ali/console.hpp>
 #include <ali/util.hpp>
+#include <ali/commands.hpp>
 
 
 struct Menu
@@ -209,42 +210,307 @@ private:
 };
 
 
-struct ProceedMenu : public Menu
+struct InstallMenu : public Menu
 {
-  ProceedMenu(std::shared_ptr<DiskTree> tree) : m_tree(tree)
+  InstallMenu(std::shared_ptr<DiskTree> tree) : m_tree(tree)
   {
 
   }
 
-private:
+private:  
+  struct ChRootCmd : public Command
+  {
+    ChRootCmd(const std::string_view cmd) :
+      Command(std::format("arch-chroot {} {}", RootMnt.string(), cmd))
+    {
+
+    }
+
+    ChRootCmd(const std::string_view cmd, std::function<void(const std::string_view)>&& on_output) :
+      Command(std::format("arch-chroot {} {}", RootMnt.string(), cmd), std::move(on_output))
+    {
+
+    }
+  };
+
+
   virtual void show () override
   {
+    #ifdef ALI_DEV
+      std::cout << "In dev mode, saving you.\n";
+      return;
+    #endif
+
+    const bool ok = mount() && pacman_strap() && fstab() /*&& chroot()*/;
+
+    if (ok)
+    {
+      // TODO 
+      ChRootCmd tz {std::format("ln -sf /usr/share/zoneinfo/{} {}", "Europe/London", "/etc/localtime")};
+      if (tz.execute() != CmdSuccess)
+        std::cout << "ERROR: timezone config failed\n";
+      else
+      {
+        if (ChRootCmd syncHwClock{"hwclock --systohc"}; syncHwClock.execute() != CmdSuccess)
+          std::cout << "ERROR: clock set failed\n";
+        else
+        {
+          // TODO check `timedatectl | grep -i "NTP service:" ` returns "NTP Service: Active"
+
+          if (localisation())
+          {
+            if (!network_config())
+              std::cout << "NOTE: network config failed, but continuing anyway";
+            
+            if (passwords())
+            {
+              // if (boot_loader())
+              // {
+              //   std::cout << "\n\n--- SUCCESS ---\n"
+              //             << "You can reboot now.\n\n"
+              //             << "Remember to remove installion media (USB) if applicable.\n"
+              //             << "--------------\n";
+              // }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  
+private:
+  bool do_mount(const std::string_view dev, const std::string_view path, const std::string_view fs)
+  {
+    if (!fs::exists(path))
+      fs::create_directory(path);
+
+    const int r = ::mount(dev.data(), path.data(), fs.data(), 0, nullptr) ;
+    
+    if (r != 0)
+      std::cout << "ERROR for " << path << " : " << ::strerror(errno) << '\n';
+
+    return r == 0;    
+  }
+
+
+  bool mount()
+  {
+    std::cout << __FUNCTION__ << '\n';
+
+    /*
     auto do_mount = [](const std::string_view dev, const std::string_view path, const std::string_view fs)
     {
-      int r = mount(dev.data(), path.data(), fs.data(), 0, nullptr) ;
+      if (!fs::exists(path))
+        fs::create_directory(path);
+
+      const int r = ::mount(dev.data(), path.data(), fs.data(), 0, nullptr) ;
       
       if (r != 0)
         std::cout << "ERROR for " << path << " : " << ::strerror(errno) << '\n';
 
       return r == 0;
     };
+    */
 
+    // if (is_dir_mounted(EfiMnt.string()))
+    //   ::umount(EfiMnt.c_str());
 
-    if (fs::exists("/mnt/boot") && is_dir_mounted("/mnt/boot"))
-      ::umount("/mnt/boot");
+    if (is_dir_mounted(BootMnt.string()))
+      ::umount(BootMnt.c_str());
 
-    if (is_dir_mounted("/mnt"))
-      ::umount("/mnt");
+    if (is_dir_mounted(RootMnt.string()))
+      ::umount(RootMnt.c_str());
     
-    const bool mounted =  do_mount(m_tree->get_root().c_str(), "/mnt", "ext4") &&
-                          do_mount(m_tree->get_boot().c_str(), "/mnt/boot", "vfat");
-        
+    const bool mounted =  do_mount(m_tree->get_root().c_str(), RootMnt.c_str(), "ext4") &&
+                          do_mount(m_tree->get_boot().c_str(), BootMnt.c_str(), "vfat")/* &&
+                          do_mount(m_tree->get_boot().c_str(), EfiMnt.c_str(), "vfat")*/;
+    
     if (mounted)
     {
-      std::cout << "Mounted /mnt -> " << m_tree->get_root().c_str() << "\n";
-      std::cout << "Mounted /mnt/boot -> " << m_tree->get_boot() << "\n";
+      std::cout << "Mounted " << BootMnt << " -> " << m_tree->get_boot() << "\n";
+      //std::cout << "Mounted " << EfiMnt  << " -> " << m_tree->get_boot() << "\n";
+      std::cout << "Mounted " << RootMnt << " -> " << m_tree->get_root() << "\n";
+    }
+
+    return mounted;
+  }
+
+
+  bool pacman_strap()
+  {
+    std::cout << __FUNCTION__ << '\n';
+
+    CpuVendor cmd_cpu_vendor;
+    const CpuVendor::Vendor cpu_vendor = cmd_cpu_vendor.get_vendor();
+
+    const auto cmd = std::format("pacstrap -K {} base linux linux-firmware {}", RootMnt.string(),
+                                                                                cpu_vendor == CpuVendor::Vendor::Amd ? "amd-ucode" : "intel-ucode");
+
+
+    bool firmware_warning = false;
+    Command pacstrap {cmd, [&firmware_warning](const std::string_view out)
+    {
+      std::cout << out;
+
+      if (out.find("Possibly missing firmware for module:") != std::string::npos)
+        firmware_warning = true;
+    }};
+    
+    pacstrap.trim_newline(false); // otherwise we wait for days to see progress
+    
+    bool ok = true;
+    if (pacstrap.execute() != CmdSuccess)
+    {
+      std::cout << "ERROR: pacstrap failed - manual intervention required to fix before running the installer\n";
+      ok = false;
+    }
+    else if (firmware_warning)
+      std::cout << "NOTE: warnings of missing firmware can be fixed post-install\n";
+  
+    return ok;
+  }
+
+
+  bool fstab()
+  {
+    std::cout << __FUNCTION__ << '\n';
+
+    fs::create_directory((RootMnt / FsTabPath).parent_path());
+
+    Command fstab {std::format("genfstab -U {} > {}", RootMnt.string(), FsTabPath.string())};
+
+    const bool ok = fstab.execute() == CmdSuccess && fs::exists(FsTabPath) && fs::file_size(FsTabPath);
+    
+    if (!ok)
+      std::cout << "ERROR: fstab failed\n";
+    
+    return ok;
+  }
+
+
+  bool localisation()
+  {
+    std::cout << __FUNCTION__ << '\n';
+
+    // TODO these
+    
+    bool ok = false;
+
+    const std::string cmd_locale {std::format("echo \"LANG={}\" >> /etc/locale.conf", "en_GB.UTF-8")};
+    const std::string cmd_console_keymap {std::format("echo \"KEYMAP={}\" >> /etc/vconsole.conf", "uk")};
+    
+    if (ChRootCmd set_locale {cmd_locale}; set_locale.execute() != CmdSuccess)
+      std::cout << "ERROR: Setting locale.conf failed\n";
+    else if (ChRootCmd set_console_keymap {cmd_console_keymap}; set_console_keymap.execute() != CmdSuccess)
+      std::cout << "ERROR: Setting vconsole.conf failed\n";
+    else
+      ok = true;
+
+    return ok;
+  }
+
+
+  bool network_config()
+  {
+    std::cout << __FUNCTION__ << '\n';
+
+    std::string hostname = "archlinux"; // TODO
+
+    const std::string cmd_host {std::format("echo \"{}\" >> /etc/hostname", hostname)};
+
+    if (ChRootCmd set_hostname {cmd_host}; set_hostname.execute() != CmdSuccess)
+    {
+      std::cout << "ERROR: Setting hostname failed\n";
+      return false;
+    }
+    else
+    {
+      // TODO network manager (https://wiki.archlinux.org/title/Network_configuration#Network_managers)
+      // probably package: networkmanager
+      return true;
     }
   }
+
+
+  bool passwords()
+  {
+    std::cout << __FUNCTION__ << '\n';
+
+    std::string root_passwd = "arch"; // TODO
+    
+    // unlock root: this was locked during dev and prevented log in, 
+    //              so leave here to ensure it is usable.
+    ChRootCmd cmd_unlock{std::format("passwd -u root", root_passwd)};
+    cmd_unlock.execute();
+
+    ChRootCmd cmd_passwd{std::format("echo \"{}\" | passwd --stdin", root_passwd), [](const std::string_view out)
+    {
+      std::cout << out;
+    }};
+    cmd_passwd.trim_newline(false);
+    
+    // TODO could use "passwd -S" to confirm second argument is 'P'
+
+    if (cmd_passwd.execute() != CmdSuccess)
+    {
+      std::cout << "Set root password failed";
+      return false;
+    }
+    else
+      return true;
+  }
+
+
+  bool boot_loader()
+  {
+    std::cout << __FUNCTION__ << '\n';
+
+    bool ok = false;
+
+    // TODO (grub, efibootmgr) or (systemd)
+
+    ChRootCmd install {"pacman -Sy --noconfirm grub efibootmgr", [](const std::string_view out)
+    {
+      std::cout << out; 
+    }};
+
+    install.trim_newline(false);
+
+    if (install.execute() != CmdSuccess)
+      std::cout << "ERROR: bootloader install failed. Do not reboot until fixed\n";
+    else
+    {
+      const std::string cmd_init = std::format("grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB");
+      
+      ChRootCmd grub_init{cmd_init, [](const std::string_view out)
+      {
+        std::cout << out;
+      }};
+
+      grub_init.trim_newline(false);
+
+      if (grub_init.execute() != CmdSuccess)
+        std::cout << "ERROR: GRUB initialise failed. Do not reboot until fixed\n";
+      else
+      {
+        ChRootCmd grub_config{"grub-mkconfig -o /boot/grub/grub.cfg", [](const std::string_view out)
+        {
+          std::cout << out;
+        }};
+  
+        grub_config.trim_newline(false);
+
+        if (grub_config.execute() != CmdSuccess)
+          std::cout << "ERROR: GRUB config failed. Do not reboot until fixed\n";
+        else
+          ok = true;
+      }
+    }
+
+    return ok;
+  }
+
 
 private:
   std::shared_ptr<DiskTree> m_tree;
@@ -259,7 +525,7 @@ struct MainMenu : public Menu
     {
       std::make_shared<LocalesMenu>(),
       std::make_shared<PartitionsMenu>(m_tree),
-      std::make_shared<ProceedMenu>(m_tree)
+      std::make_shared<InstallMenu>(m_tree)
     };
   }
   

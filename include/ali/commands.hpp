@@ -26,6 +26,8 @@ struct Command
   int execute (const std::string_view cmd, const int max_lines = -1);
   int execute (const int max_lines = -1);
   
+  void trim_newline(const bool trim) { m_trim_newline = trim; }
+
 protected:
   bool executed() const { return m_executed; }
 
@@ -33,6 +35,7 @@ private:
   std::string m_cmd;
   std::function<void(const std::string_view)> m_handler;
   bool m_executed{false};
+  bool m_trim_newline{true};
 };
 
 

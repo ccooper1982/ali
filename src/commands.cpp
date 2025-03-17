@@ -47,7 +47,7 @@ int Command::execute (const std::string_view cmd, const int max_lines)
       {
         std::string_view sv{buff};
         
-        if (sv.ends_with('\n'))
+        if (m_trim_newline && sv.ends_with('\n'))
           sv.remove_suffix(1);
         
         m_handler(sv);
@@ -57,9 +57,7 @@ int Command::execute (const std::string_view cmd, const int max_lines)
         break;
     }
     
-    ::pclose(fd);
-    
-    return CmdSuccess;
+    return pclose(fd);
   }
   else
     return CmdFail;
