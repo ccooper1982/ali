@@ -25,6 +25,7 @@ struct Command
   
   int execute (const std::string_view cmd, const int max_lines = -1);
   int execute (const int max_lines = -1);
+  int execute_write(const std::string_view s);
   
   void trim_newline(const bool trim) { m_trim_newline = trim; }
 
@@ -104,7 +105,5 @@ struct TimezoneList : public Command
 private:
   std::vector<std::string>& m_zones;  
 };
-
-
 
 #endif

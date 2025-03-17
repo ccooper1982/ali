@@ -29,6 +29,7 @@ int Command::operator()()
   return execute();
 }
 
+
 int Command::execute (const std::string_view cmd, const int max_lines)
 {
   m_executed = true;
@@ -57,15 +58,32 @@ int Command::execute (const std::string_view cmd, const int max_lines)
         break;
     }
     
+    
     return pclose(fd);
   }
   else
     return CmdFail;
 }
 
+
 int Command::execute (const int max_lines)
 {
   return execute(m_cmd, max_lines);
+}
+
+
+int Command::execute_write(const std::string_view s)
+{
+  std::cout << "execute_write()\n";
+
+  if (FILE * fd = ::popen(m_cmd.data(), "w"); fd)
+  {
+    std::cout << "writing: " << s << '\n';
+
+    fputs(s.data(), fd);
+    return ::pclose(fd);
+  }
+  return CmdFail;
 }
 
 

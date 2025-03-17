@@ -210,6 +210,9 @@ int main (int argc, char ** argv)
   }
   else
   {
+    Command keys{"loadkeys uk"}; // TODO
+    keys.execute();
+
     Console c;
     c.show();
   }

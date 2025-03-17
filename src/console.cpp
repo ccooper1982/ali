@@ -2,6 +2,7 @@
 #include <sys/mount.h>
 #include <string.h> 
 #include <iostream>
+#include <fstream>
 #include <ali/console.hpp>
 #include <ali/util.hpp>
 #include <ali/commands.hpp>
@@ -241,7 +242,7 @@ private:
       return;
     #endif
 
-    const bool ok = mount() && pacman_strap() && fstab() /*&& chroot()*/;
+    const bool ok = mount() && pacman_strap() && fstab();
 
     if (ok)
     {
@@ -280,6 +281,7 @@ private:
 
   
 private:
+
   bool do_mount(const std::string_view dev, const std::string_view path, const std::string_view fs)
   {
     if (!fs::exists(path))
@@ -298,24 +300,6 @@ private:
   {
     std::cout << __FUNCTION__ << '\n';
 
-    /*
-    auto do_mount = [](const std::string_view dev, const std::string_view path, const std::string_view fs)
-    {
-      if (!fs::exists(path))
-        fs::create_directory(path);
-
-      const int r = ::mount(dev.data(), path.data(), fs.data(), 0, nullptr) ;
-      
-      if (r != 0)
-        std::cout << "ERROR for " << path << " : " << ::strerror(errno) << '\n';
-
-      return r == 0;
-    };
-    */
-
-    // if (is_dir_mounted(EfiMnt.string()))
-    //   ::umount(EfiMnt.c_str());
-
     if (is_dir_mounted(BootMnt.string()))
       ::umount(BootMnt.c_str());
 
@@ -323,13 +307,11 @@ private:
       ::umount(RootMnt.c_str());
     
     const bool mounted =  do_mount(m_tree->get_root().c_str(), RootMnt.c_str(), "ext4") &&
-                          do_mount(m_tree->get_boot().c_str(), BootMnt.c_str(), "vfat")/* &&
-                          do_mount(m_tree->get_boot().c_str(), EfiMnt.c_str(), "vfat")*/;
+                          do_mount(m_tree->get_boot().c_str(), BootMnt.c_str(), "vfat");
     
     if (mounted)
     {
       std::cout << "Mounted " << BootMnt << " -> " << m_tree->get_boot() << "\n";
-      //std::cout << "Mounted " << EfiMnt  << " -> " << m_tree->get_boot() << "\n";
       std::cout << "Mounted " << RootMnt << " -> " << m_tree->get_root() << "\n";
     }
 
@@ -417,19 +399,10 @@ private:
 
     std::string hostname = "archlinux"; // TODO
 
-    const std::string cmd_host {std::format("echo \"{}\" >> /etc/hostname", hostname)};
+    std::ofstream hostname_stream{"/etc/hostname", std::ios::out | std::ios::trunc};
+    hostname_stream.write(hostname.c_str(), hostname.size());
 
-    if (ChRootCmd set_hostname {cmd_host}; set_hostname.execute() != CmdSuccess)
-    {
-      std::cout << "ERROR: Setting hostname failed\n";
-      return false;
-    }
-    else
-    {
-      // TODO network manager (https://wiki.archlinux.org/title/Network_configuration#Network_managers)
-      // probably package: networkmanager
-      return true;
-    }
+    return fs::exists("/etc/hostname");
   }
 
 
@@ -439,26 +412,21 @@ private:
 
     std::string root_passwd = "arch"; // TODO
     
-    // unlock root: this was locked during dev and prevented log in, 
-    //              so leave here to ensure it is usable.
-    ChRootCmd cmd_unlock{std::format("passwd -u root", root_passwd)};
-    cmd_unlock.execute();
+    ChRootCmd cmd_passwd{"passwd --stdin"};
+    cmd_passwd.execute_write(root_passwd);
 
-    ChRootCmd cmd_passwd{std::format("echo \"{}\" | passwd --stdin", root_passwd), [](const std::string_view out)
+    bool pass_set{false};
+    ChRootCmd cmd_check{"passwd -S", [&pass_set](const std::string_view out)
     {
-      std::cout << out;
+      if (out.size() > 6) // at least "root P"
+      {
+        if (const auto pos = out.find(' '); pos != std::string_view::npos)
+          pass_set = out.substr(pos+1, 1) == "P";
+      }
     }};
-    cmd_passwd.trim_newline(false);
-    
-    // TODO could use "passwd -S" to confirm second argument is 'P'
+    cmd_check.execute();
 
-    if (cmd_passwd.execute() != CmdSuccess)
-    {
-      std::cout << "Set root password failed";
-      return false;
-    }
-    else
-      return true;
+    return pass_set;
   }
 
 
