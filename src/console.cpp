@@ -264,13 +264,13 @@ private:
             
             if (passwords())
             {
-              // if (boot_loader())
-              // {
-              //   std::cout << "\n\n--- SUCCESS ---\n"
-              //             << "You can reboot now.\n\n"
-              //             << "Remember to remove installion media (USB) if applicable.\n"
-              //             << "--------------\n";
-              // }
+              if (boot_loader())
+              {
+                std::cout << "\n\n--- SUCCESS ---\n"
+                          << "You can reboot now.\n\n"
+                          << "Remember to remove installion media (USB) if applicable.\n"
+                          << "--------------\n";
+              }
             }
           }
         }
