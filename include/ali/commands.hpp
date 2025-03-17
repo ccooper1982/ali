@@ -15,11 +15,10 @@ inline const int CmdFail = -1;
 struct Command
 {
   Command ();
-  
-  Command (std::function<void(const std::string_view)>&& on_output) ;
-
+  Command (std::function<void(const std::string_view)>&& on_output) ; // TODO what's the point of this?
+  // If command has no output or output is irrelevant.
   Command (const std::string_view cmd) ;
-  
+  // Run command and receive each line in the supplied callback.
   Command (const std::string_view cmd, std::function<void(const std::string_view)>&& on_output) ;
   
   virtual int operator()();
@@ -27,9 +26,13 @@ struct Command
   int execute (const std::string_view cmd, const int max_lines = -1);
   int execute (const int max_lines = -1);
   
+protected:
+  bool executed() const { return m_executed; }
+
 private:
   std::string m_cmd;
   std::function<void(const std::string_view)> m_handler;
+  bool m_executed{false};
 };
 
 
@@ -41,7 +44,7 @@ public:
 
 
 private:
-  virtual int operator()();
+  virtual int operator()() override;
   void on_output(const std::string_view line);
   
 private:
@@ -61,7 +64,7 @@ struct PlatformSize : public Command
 
   bool platform_file_exist() const;
 
-  virtual int operator()();
+  virtual int operator()() override;
 
 private:
   int m_size{0};
@@ -79,10 +82,24 @@ struct CpuVendor : public Command
 
   Vendor get_vendor ();
 
-  virtual int operator()();
+  virtual int operator()() override;
 
 private:
   Vendor m_vendor {Vendor::None};
+};
+
+
+struct TimezoneList : public Command
+{
+  TimezoneList(std::vector<std::string>& zones) ;
+
+  void on_output(const std::string_view line);
+  virtual int operator()() override;
+
+  void get_zones();
+
+private:
+  std::vector<std::string>& m_zones;  
 };
 
 

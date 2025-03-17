@@ -1,4 +1,6 @@
 
+#include <sys/mount.h>
+#include <string.h> 
 #include <iostream>
 #include <ali/console.hpp>
 #include <ali/util.hpp>
@@ -63,40 +65,15 @@ struct LocalesMenu : public Menu
 };
 
 
-struct SetMount : public Menu
-{
-  virtual void setRoot ()
-  {
-    m_prompt = "/";
-
-    for (bool exit = false; !exit ;)
-    {
-      std::cout <<  "1. Set same as root\n" <<
-                    "2. Set separate partion\n" <<
-                    "3. Back";
-    }
-  }
-
-  virtual void setBoot ()
-  {
-    m_prompt = "/boot";
-  }
-
-private:
-  virtual void show () override
-  {
-  }
-
-  std::string m_prompt;
-};
-
-
 struct PartitionsMenu : public Menu
 {
+  PartitionsMenu(std::shared_ptr<DiskTree> tree) : m_tree(tree)
+  {
+
+  }
+
   virtual void show () override
   {
-    m_tree = create_disk_tree();
-    
     while (m_state != State::Complete)
     {
       switch (m_state)
@@ -120,7 +97,7 @@ struct PartitionsMenu : public Menu
         std::cout << "Use root partition for /home?\nEnter 1 to confirm or 0 to use a different partition";
         if (const int n = prompt(); n == 1)
         {
-          m_tree.assign_home_to_root();
+          m_tree->assign_home_to_root();
           m_home_is_root = m_home_set = true;
         }
         else if (n == 0)
@@ -162,27 +139,27 @@ private:
     {
       if (m_state == State::Boot)
       {
-        if (!m_tree.is_partition_efi(entry))
+        if (!m_tree->is_partition_efi(entry))
         {
           std::cout << "ERROR: partition is not an EFI type\n";
         }
         else
         {
-          if (m_tree.get_partition_size(entry) < BootSizeWarning)
+          if (m_tree->get_partition_size(entry) < BootSizeWarning)
             std::cout << "WARNING: " << entry << " size is less than 256MB. Not reommended.\n";
           
-          set = m_tree.assign_boot(entry);
+          set = m_tree->assign_boot(entry);
         }
       }
       else if (m_state == State::Root)
       {
-        if (m_tree.get_partition_size(entry) < RootSizeWarning)
+        if (m_tree->get_partition_size(entry) < RootSizeWarning)
           std::cout << "WARNING: " << entry << " size is less than 8GB. This may be limiting for a desktop environment.\n";
         
-        set = m_tree.assign_root(entry);
+        set = m_tree->assign_root(entry);
       }
       else if (m_state == State::Home)
-        set = m_tree.assign_home(entry);
+        set = m_tree->assign_home(entry);
 
       if (!set)
         std::cout << "Error: does not exist or is not a partition\n";
@@ -193,7 +170,7 @@ private:
 
   void display_disk_tree()
   {
-    for (const auto& disk : m_tree.get_disks())
+    for (const auto& disk : m_tree->get_disks())
     {
       std::cout << disk.first << '\n';
 
@@ -214,9 +191,9 @@ private:
   void display_mount_points()
   {
     std::cout << "------\n";
-    std::cout << "boot -> " << m_tree.get_boot() << '\n'
-              << "root -> " << m_tree.get_root() << '\n'
-              << "home -> " << m_tree.get_home() << '\n';
+    std::cout << "boot -> " << m_tree->get_boot() << '\n'
+              << "root -> " << m_tree->get_root() << '\n'
+              << "home -> " << m_tree->get_home() << '\n';
     std::cout << "------\n";
   }
 
@@ -228,40 +205,87 @@ private:
   bool m_root_set{false};  
   bool m_boot_set{false};
   State m_state{State::Boot};
-  DiskTree m_tree;
+  std::shared_ptr<DiskTree> m_tree;
+};
+
+
+struct ProceedMenu : public Menu
+{
+  ProceedMenu(std::shared_ptr<DiskTree> tree) : m_tree(tree)
+  {
+
+  }
+
+private:
+  virtual void show () override
+  {
+    auto do_mount = [](const std::string_view dev, const std::string_view path, const std::string_view fs)
+    {
+      int r = mount(dev.data(), path.data(), fs.data(), 0, nullptr) ;
+      
+      if (r != 0)
+        std::cout << "ERROR for " << path << " : " << ::strerror(errno) << '\n';
+
+      return r == 0;
+    };
+
+
+    if (fs::exists("/mnt/boot") && is_dir_mounted("/mnt/boot"))
+      ::umount("/mnt/boot");
+
+    if (is_dir_mounted("/mnt"))
+      ::umount("/mnt");
+    
+    const bool mounted =  do_mount(m_tree->get_root().c_str(), "/mnt", "ext4") &&
+                          do_mount(m_tree->get_boot().c_str(), "/mnt/boot", "vfat");
+        
+    if (mounted)
+    {
+      std::cout << "Mounted /mnt -> " << m_tree->get_root().c_str() << "\n";
+      std::cout << "Mounted /mnt/boot -> " << m_tree->get_boot() << "\n";
+    }
+  }
+
+private:
+  std::shared_ptr<DiskTree> m_tree;
 };
 
 
 struct MainMenu : public Menu
 {
-  MainMenu()
+  MainMenu() : m_tree(std::make_shared<DiskTree>())
   {
-    menus = std::vector<Menu*>
+    m_menus = decltype(m_menus)
     {
-      new LocalesMenu,
-      new PartitionsMenu
+      std::make_shared<LocalesMenu>(),
+      std::make_shared<PartitionsMenu>(m_tree),
+      std::make_shared<ProceedMenu>(m_tree)
     };
   }
-
+  
   virtual void show () override
   {
+    *m_tree = create_disk_tree();
+
     for (bool exit = false; !exit ;)
     {
       std::cout <<  "1. Locales\n" <<
                     "2. Partitions and Mounts\n" <<
-                    "3. Exit";
+                    "3. Proceed\n" <<
+                    "4. Exit";
     
-      if (const auto n = prompt(); n == 3)
+      if (const auto n = prompt(); n == 4)
         exit = true;      
-      else if (n >= 1 && n < 3)
+      else if (n >= 1 && n < 4)
       {
-        menus[n-1]->show();
+        m_menus[n-1]->show();
       }
     }
   }
 
 private:
-  std::vector<Menu*> menus;
+  std::vector<std::shared_ptr<Menu>> m_menus;
+  std::shared_ptr<DiskTree> m_tree;
 };
 
 

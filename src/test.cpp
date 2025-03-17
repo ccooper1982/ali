@@ -89,6 +89,15 @@ bool get_cpu_vendor ()
 }
 
 
+bool get_timezones(std::vector<std::string>& zones)
+{
+  std::cout << __FUNCTION__ << '\n';
+
+  TimezoneList tl{zones};
+  tl.get_zones();
+  return !zones.empty();
+}
+
 
 // network
 struct NetworkInf
@@ -98,11 +107,15 @@ struct NetworkInf
 };
 
 
-//std::map<unsigned int, std::string> networkInterfaces;
-std::vector<NetworkInf> networkInterfaces2;
+
 std::vector<std::string> keysMap;
+std::vector<std::string> timezones;
 
 
+/*
+// Not used, network must be configured before running ali
+
+std::vector<NetworkInf> networkInterfaces2;
 bool get_network_interfaces()
 {
   ifaddrs * addr_head;
@@ -121,11 +134,11 @@ bool get_network_interfaces()
     {
       char host[NI_MAXHOST];
 
-      if (getnameinfo(node->ifa_addr,
-                      family == AF_INET ? sizeof(sockaddr_in) : sizeof(sockaddr_in6),
-                      host, NI_MAXHOST,
-                      nullptr, 0,  // dont want service name
-                      NI_NUMERICHOST) == 0)
+      if (::getnameinfo(node->ifa_addr,
+                        family == AF_INET ? sizeof(sockaddr_in) : sizeof(sockaddr_in6),
+                        host, NI_MAXHOST,
+                        nullptr, 0,  // dont want service name
+                        NI_NUMERICHOST) == 0)
       {
         networkInterfaces2.emplace_back(node->ifa_name, host);
       }
@@ -135,19 +148,8 @@ bool get_network_interfaces()
   ::freeifaddrs(addr_head);
 
   return true;
-  
-  // if (struct if_nameindex * if_ni = ::if_nameindex(); if_ni == nullptr)
-  //   return false;
-  // else
-  // {
-  //   for (auto i = if_ni; !(i->if_index == 0 && i->if_name == NULL); ++i)
-  //     networkInterfaces.emplace(i->if_index, i->if_name);
-
-  //   ::if_freenameindex(if_ni);
-  
-  //   return true;
-  // }
 }
+*/
 
 
 bool check_connection()
@@ -182,18 +184,26 @@ bool check_connection()
 
 bool init()
 {
-  return  check_commands_exist() &&
+  return  check_connection() &&
+          check_commands_exist() &&
           check_platform_size() &&
           get_keymap(keysMap) &&
           get_cpu_vendor() &&
-          check_connection();
+          get_timezones(timezones);
 }
 
 
 int main (int argc, char ** argv)
 {
-  //static Command CmdSetFont {"setfont ter-132b"}; // probably don't need this since we'll be firing up GTK
-  
+  #ifdef ALI_PROD
+    std::cout << "Production Mode\n";
+  #elif defined(ALI_DEV)
+    std::cout << "Dev Mode\n";
+  #else
+    static_assert(false, "ALI_PROD or ALI_DEV must be defined");
+  #endif
+
+
   if (!init())
   {
     return -1;
@@ -202,19 +212,6 @@ int main (int argc, char ** argv)
   {
     Console c;
     c.show();
-
-    /*
-    if (get_network_interfaces())
-    {
-      for (const auto& inf : networkInterfaces2)
-        std::cout << inf.name << " = " << inf.ip << '\n';
-
-      // std::for_each(std::cbegin(networkInterfaces), std::cend(networkInterfaces), [](const auto& pair)
-      // {
-      //   std::cout << pair.first << ":" << pair.second;
-      // });
-    }
-    */
   }
 
   return 0;

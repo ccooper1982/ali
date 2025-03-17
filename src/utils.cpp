@@ -1,6 +1,6 @@
 #include <ali/util.hpp>
 #include <cstring>
-
+#include <libmount/libmount.h>
 
 static const std::string EfiPartitionType {"C12A7328-F81F-11D2-BA4B-00A0C93EC93B"};
 
@@ -231,4 +231,36 @@ PartitionStatus check_partition_status(const std::string_view part_dev)
   }
 
   return status;
+}
+
+
+static bool is_mounted(const std::string_view path_or_dev, const bool is_dev)
+{
+  bool mounted = false;
+
+  if (auto table = mnt_new_table(); table)
+  {
+    if (mnt_table_parse_mtab(table, nullptr) == 0)
+    {
+      if (is_dev)
+        mounted = nullptr != mnt_table_find_source(table, path_or_dev.data(), MNT_ITER_FORWARD);
+      else
+        mounted = nullptr != mnt_table_find_target(table, path_or_dev.data(), MNT_ITER_FORWARD);
+    }
+
+    mnt_free_table(table);
+  }
+
+  return mounted;
+}
+
+
+bool is_dir_mounted(const std::string_view path)
+{
+  return is_mounted(path, false);
+}
+
+bool is_dev_mounted(const std::string_view path)
+{
+  return is_mounted(path, true);
 }

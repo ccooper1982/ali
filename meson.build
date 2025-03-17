@@ -24,6 +24,7 @@ else
 endif
 
 blkid = dependency('blkid', required: true)
+libmount = dependency('mount', required: true)
 
 sources = [
     'src/test.cpp',
@@ -37,4 +38,4 @@ includes = include_directories('include')
 executable( meson.project_name(),
             sources,
             include_directories: includes,
-            dependencies: [blkid])
+            dependencies: [blkid, libmount])

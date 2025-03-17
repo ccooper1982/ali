@@ -162,4 +162,7 @@ PartitionStatus check_partition_status(const std::string_view part);
 std::vector<std::string> get_installable_devices();
 DiskTree create_disk_tree ();
 
+bool is_dir_mounted(const std::string_view path);
+bool is_dev_mounted(const std::string_view path);
+
 #endif

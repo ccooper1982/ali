@@ -5,8 +5,18 @@
 - Confirm network activity
 - Sync lock: `timedatectl`
 
-
 # Prepare
+
+## Locale
+- User selects mapping from `localectl list-keymaps`
+- Terminal font: `setfont ter-132b` : WARNING - this is only suitable for high DPI and fullscreen, unusable otherwise
+  - Can be reset with `setfont` (`setfont -R` failed)
+
+
+## Timezone
+1. `timedatectl list-timezones`
+2. Then `timedatectl set-timezone <ZONE>`
+
 
 ## Partitions and Mounts
 - Show partitions
@@ -15,16 +25,6 @@
 - Users sets `/boot`, `/`, `/home`
 - Ask if `/home` uses `/`, otherwise set explicitly
 - Confirm `/` and `/home` have suitable filesystem (i.e. `ext4`)
-
-
-## Locale
-- User selects mapping from `localectl list-keymaps`
-- Terminal font: `setfont ter-132b`
-
-
-## Timezone
-1. `timedatectl list-timezones`
-2. Then `timedatectl set-timezone <ZONE>`
 
 
 ## Mount
@@ -52,13 +52,10 @@ Could eventually use [map](https://github.com/lfreist/hwinfo/blob/main/include/h
 # Install
 
 ## Prepare Pacman
-1. Base package: `pacstrap -K /mnt base linux linux-firmware`
+1. Prompt to install `linux-firmware` 
+2. Base package: `pacstrap -K /mnt base linux linux-firmware`
     - See guide for different kernels and omitting firmware pacakge when on VM
-2. CPU Microcode: `amd-ucode` or `intel-ucode`
-
-
-## Firmware
-- Prompt to install `linux-firmware` 
+3. CPU Microcode: `amd-ucode` or `intel-ucode`
 
 
 ## Additional

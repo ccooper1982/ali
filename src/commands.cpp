@@ -31,6 +31,8 @@ int Command::operator()()
 
 int Command::execute (const std::string_view cmd, const int max_lines)
 {
+  m_executed = true;
+
   if (cmd.empty())
     return CmdSuccess;
 
@@ -42,7 +44,14 @@ int Command::execute (const std::string_view cmd, const int max_lines)
     while (fgets(buff, sizeof(buff), fd) != nullptr)
     {
       if (m_handler)
-        m_handler(buff);
+      {
+        std::string_view sv{buff};
+        
+        if (sv.ends_with('\n'))
+          sv.remove_suffix(1);
+        
+        m_handler(sv);
+      }        
 
       if (++n_lines == max_lines)
         break;
@@ -82,7 +91,7 @@ int CommandExist::operator()()
 void CommandExist::on_output(const std::string_view line)
 {
   // if program not found, fgets() has no work so this is not
-  // called, but have this here just in case
+  // called, but have this here for brevity
   m_missing = line.empty() || line.size() == 1;
 }
 
@@ -128,7 +137,8 @@ int PlatformSize::operator()()
 
 
 //
-CpuVendor::CpuVendor() : Command("cat /proc/cpuinfo | grep \"^model name\"", std::bind_front(&CpuVendor::on_output, std::ref(*this)))
+CpuVendor::CpuVendor() :
+  Command("cat /proc/cpuinfo | grep \"^model name\"", std::bind_front(&CpuVendor::on_output, std::ref(*this)))
 {
 
 }
@@ -149,4 +159,31 @@ CpuVendor::Vendor CpuVendor::get_vendor ()
 int CpuVendor::operator()()
 {
   return get_vendor() == Vendor::None ? CmdFail : CmdSuccess;
+}
+
+
+//
+TimezoneList::TimezoneList(std::vector<std::string>& zones) :
+  Command("timedatectl list-timezones", std::bind_front(&TimezoneList::on_output, std::ref(*this))),
+  m_zones(zones)
+{
+  m_zones.reserve(600); // "timedatectl list-timezones | wc -l" returns 597
+}
+
+void TimezoneList::on_output(const std::string_view line)
+{
+  if (!line.empty())
+    m_zones.emplace_back(line);
+}
+
+int TimezoneList::operator()()
+{
+  get_zones();  
+  return m_zones.empty() ? CmdFail : CmdSuccess;
+}
+
+void TimezoneList::get_zones()
+{
+  if (!executed())
+    execute();
 }
