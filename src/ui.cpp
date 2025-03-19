@@ -2,6 +2,7 @@
 #include <iostream>
 #include <qt/QtWidgets/QApplication>
 #include <qt/QtWidgets/QLabel>
+#include <qt/QtWidgets/QMainWindow>
 
 // sudo mount -t tmpfs -o size=10M tmpfs /mnt/mytmpfs
 
@@ -16,8 +17,10 @@ int main (int argc, char ** argv)
   #endif
 
   QApplication app(argc, argv);
-  QLabel hello("Hello world!");
-
-  hello.show();
+  
+  QMainWindow window;
+  window.setWindowTitle("Arch Linux Installer");
+  window.resize(400, 300);
+  window.show();
   return app.exec();
 }

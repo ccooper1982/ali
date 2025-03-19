@@ -138,6 +138,8 @@ xorg-server
 xorg-xinit
 xcb-util
 xwallpaper
+xcompmgr
+hsetroot
 mesa
 nvidia-open-dkms
 vulkan-radeon
