@@ -1,6 +1,3 @@
-#sh ~/.local/bin/setbg
-#exec ~/ali
-
 # Programs that will run after Openbox has started
 
 # Run a Composite manager
