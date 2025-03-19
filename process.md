@@ -1,3 +1,13 @@
+# Init
+
+`-v`: verbose
+`-w`: working dir. note this uses tmpfs, requiring: 
+`-r`: delete working directory when complete
+
+`sudo mkarchiso -v -r -w /tmp/archiso-tmp -o archiso/iso archiso/profile/`
+
+`export QT_QPA_PLATFORM_PLUGIN_PATH=/usr/lib/qt6/plugins`
+
 # Startup
 - Open/truncate log file: `/var/log/ali/ali.log`
 - Confirm required commands

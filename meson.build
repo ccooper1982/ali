@@ -26,16 +26,24 @@ endif
 blkid = dependency('blkid', required: true)
 libmount = dependency('mount', required: true)
 
+#qt6 = import('qt6')
+qt6_dep = dependency('qt6', required: true, modules: ['Core', 'Gui', 'Widgets'])
+
 sources = [
-    'src/test.cpp',
-    'src/console.cpp',
+    #'src/test.cpp',    
+    #'src/console.cpp',
+    'src/ui.cpp',
     'src/commands.cpp',
     'src/utils.cpp'
     ]
 
 includes = include_directories('include')
 
+# moc_files = qt6.compile_moc(headers : 'myclass.h',
+#                             include_directories: includes,
+#                             dependencies: qt6_dep)
+
 executable( meson.project_name(),
             sources,
             include_directories: includes,
-            dependencies: [blkid, libmount])
+            dependencies: [blkid, libmount, qt6_dep])
