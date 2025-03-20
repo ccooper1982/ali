@@ -6,7 +6,6 @@
 static const std::string EfiPartitionType {"c12a7328-f81f-11d2-ba4b-00a0c93ec93b"};
 
 
-// TODO could create child classes: BlocksProbe, PartsProbe, PartsBlocksProbe.
 struct Probe
 {
   Probe(const std::string_view dev,
@@ -40,7 +39,7 @@ struct Probe
 };
 
 
-static std::tuple<PartitionStatus, Partition> read_partition2(const std::string_view part_dev)
+static std::tuple<PartitionStatus, Partition> read_partition(const std::string_view part_dev)
 {
   std::cout << __FUNCTION__ << " - " << part_dev << '\n';
 
@@ -78,8 +77,6 @@ static std::tuple<PartitionStatus, Partition> read_partition2(const std::string_
     blkid_probe_lookup_value(pr, "FSSIZE", &fs_size, nullptr);
     blkid_probe_lookup_value(pr, "PART_ENTRY_TYPE", &type_uuid, &type_uuid_len);
 
-    const int64_t size = std::strtoll (fs_size, nullptr, 10);
-
     if (std::strcmp(type, "vfat") == 0)
     {
       if (blkid_probe_has_value(pr, "VERSION"))
@@ -104,7 +101,7 @@ static std::tuple<PartitionStatus, Partition> read_partition2(const std::string_
       partition.is_efi = partition.type_uuid == EfiPartitionType;
       partition.type = isfat32 ? vfat_version : type;
       partition.path = part_dev;
-      partition.size = size;
+      partition.size = std::strtoll (fs_size, nullptr, 10);
       status = PartitionStatus::Ok;
     }
 
@@ -131,13 +128,18 @@ Partitions get_partitions()
       {
         const auto dev_name = blkid_dev_devname(dev);
         
-        if (auto [status, part] = read_partition2(dev_name); status == PartitionStatus::Ok)
+        if (auto [status, part] = read_partition(dev_name); status == PartitionStatus::Ok)
           parts.push_back(std::move(part));
       }
 
       blkid_dev_iterate_end(dev_it);
     }
   }
+
+  std::sort(parts.begin(), parts.end(), [](const Partition& a, const Partition& b)
+  {
+    return a.path < b.path;
+  });
 
   return parts;
 }

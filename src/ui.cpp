@@ -35,7 +35,7 @@ private:
   const std::vector<ContentWidget*> NavItemToWidget = 
   {
     new WelcomeWidget{"Welcome"},
-    new PartitionsWidget{"Partitions"},
+    new PartitionsWidget{"Mounts"},
     new NetworkWidget{"Network"}
     // Locales, Bootloader, Accounts, Profile, Audio, Video, Packages
   };
@@ -51,7 +51,7 @@ public:
 
     setModel(m_model);
     setHeaderHidden(true);
-    setMaximumWidth(200);
+    setMaximumWidth(150);
     setSelectionMode(QAbstractItemView::SelectionMode::SingleSelection);
     setSelectionBehavior(QAbstractItemView::SelectionBehavior::SelectRows);
     setFrameStyle(QFrame::NoFrame);
