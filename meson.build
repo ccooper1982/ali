@@ -23,8 +23,8 @@ else
   add_project_arguments('-DALI_PROD', language: 'cpp')
 endif
 
-blkid = dependency('blkid', required: true)
-libmount = dependency('mount', required: true)
+blkid_dep = dependency('blkid', required: true)
+libmount_dep = dependency('mount', required: true)
 
 #qt6 = import('qt6')
 qt6_dep = dependency('qt6', required: true, modules: ['Core', 'Gui', 'Widgets'])
@@ -32,6 +32,7 @@ qt6_dep = dependency('qt6', required: true, modules: ['Core', 'Gui', 'Widgets'])
 sources = [
     #'src/test.cpp',    
     #'src/console.cpp',
+    'src/widgets/partitions_widget.cpp',
     'src/ui.cpp',
     'src/commands.cpp',
     'src/utils.cpp'
@@ -46,4 +47,4 @@ includes = include_directories('include')
 executable( meson.project_name(),
             sources,
             include_directories: includes,
-            dependencies: [blkid, libmount, qt6_dep])
+            dependencies: [blkid_dep, libmount_dep, qt6_dep])

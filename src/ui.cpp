@@ -1,50 +1,19 @@
 
 #include <iostream>
 #include <map>
-#include <qt/QtWidgets/QApplication>
-#include <qt/QtWidgets/QLabel>
-#include <qt/QtWidgets/QFormLayout>
-#include <qt/QtWidgets/QHBoxLayout>
-#include <qt/QtWidgets/QVBoxLayout>
-#include <qt/QtWidgets/QLineEdit>
-#include <qt/QtWidgets/QPushButton>
-#include <qt/QtWidgets/QTreeView>
+#include <ali/widgets/welcome_widget.hpp>
+#include <ali/widgets/content_widget.hpp>
+#include <ali/widgets/partitions_widget.hpp>
+#include <QApplication>
+#include <QLabel>
+#include <QFormLayout>
+#include <QHBoxLayout>
+#include <QVBoxLayout>
+#include <QLineEdit>
+#include <QPushButton>
+#include <QTreeView>
 #include <QStandardItemModel>
-#include <qt/QtWidgets/QMainWindow>
-
-
-struct ContentWidget : public QWidget
-{
-  ContentWidget(const QString& nav_name) : m_nav_name(nav_name)
-  {
-    
-  }
-
-
-  virtual const QString get_nav_name() const
-  {
-    return m_nav_name;
-  }
-
-
-private:
-  QString m_nav_name;
-};
-
-
-struct WelcomeWidget : public ContentWidget
-{
-  WelcomeWidget(const QString& nav_name) : ContentWidget(nav_name)
-  {
-    QVBoxLayout * layout = new QVBoxLayout;
-    layout->setAlignment(Qt::AlignHCenter | Qt::AlignTop);
-
-    QLabel * label = new QLabel("Welcome");
-    layout->addWidget(label);
-
-    setLayout(layout);
-  }
-};
+#include <QMainWindow>
 
 
 struct NetworkWidget : public ContentWidget
@@ -66,15 +35,16 @@ private:
   const std::vector<ContentWidget*> NavItemToWidget = 
   {
     new WelcomeWidget{"Welcome"},
+    new PartitionsWidget{"Partitions"},
     new NetworkWidget{"Network"}
-    // Locales, Partitions, Bootloader, Accounts, Profile, Audio, Video, Packages
+    // Locales, Bootloader, Accounts, Profile, Audio, Video, Packages
   };
 
 public:
 
-  explicit NavTree(QLayout * const central_layout) : m_central_layout(central_layout)
+  explicit NavTree(QLayout * const centre_layout) : m_centre_layout(centre_layout)
   {
-    m_model = new QStandardItemModel{0,0};
+    m_model = new QStandardItemModel{0,1};
 
     for (const auto item : NavItemToWidget)
       m_model->appendRow(new QStandardItem(item->get_nav_name()));
@@ -84,6 +54,7 @@ public:
     setMaximumWidth(200);
     setSelectionMode(QAbstractItemView::SelectionMode::SingleSelection);
     setSelectionBehavior(QAbstractItemView::SelectionBehavior::SelectRows);
+    setFrameStyle(QFrame::NoFrame);
 
     connect(selectionModel(), &QItemSelectionModel::selectionChanged, this, [this](const QItemSelection& selected, const QItemSelection& deselected)
     {
@@ -99,11 +70,11 @@ public:
           if (m_current)
           {
             m_current->hide();
-            m_central_layout->replaceWidget(m_current, next, Qt::FindDirectChildrenOnly);
+            m_centre_layout->replaceWidget(m_current, next, Qt::FindDirectChildrenOnly);
           }
           else
           {
-            m_central_layout->addWidget(next);
+            m_centre_layout->addWidget(next);
           }
 
           m_current = next;
@@ -113,20 +84,19 @@ public:
     });
   }
 
-  ContentWidget * get_welcome_widget()
+  ~NavTree()
   {
-    return NavItemToWidget[0];
+    for(auto& item : NavItemToWidget)
+      delete item;
   }
 
   void show_welcome()
   {
-    //QItemSelection s(1);
-    //selectionModel()->select(s, QItemSelectionModel::ClearAndSelect);
     setCurrentIndex(model()->index(0,0));
   }
 
 private:
-  QLayout * m_central_layout;
+  QLayout * m_centre_layout;
   QWidget * m_current{nullptr};
   QStandardItemModel * m_model;
   QModelIndex m_welcome_index;
@@ -147,22 +117,25 @@ int main (int argc, char ** argv)
 
   QApplication app(argc, argv);
   
+  // main window contains a widget which has a horizontal layout,
+  // to which the Nav is added first. The layout is passed to the 
+  // navigation tree so it can add/remove widgets as nav items are 
+  // selected. 
 
-  QHBoxLayout * central_layout = new QHBoxLayout;
-  QVBoxLayout * nav_layout = new QVBoxLayout;
+  QHBoxLayout * centre_layout = new QHBoxLayout;
+  NavTree * nav_tree = new NavTree(centre_layout);
 
-  NavTree * nav_tree = new NavTree(central_layout);
-  
-  central_layout->addLayout(nav_layout);
-  //central_layout->addWidget(content_widget, 1); 
-  
-  QWidget * wgt_central = new QWidget;
-  wgt_central->setLayout(central_layout);
+  centre_layout->setContentsMargins(0,5,0,0);
+  centre_layout->addWidget(nav_tree);
+
+  QWidget * centre_widget = new QWidget;
+  centre_widget->setContentsMargins(0,0,0,0);
+  centre_widget->setLayout(centre_layout);
 
   QMainWindow window;
-  window.setWindowTitle("Arch Linux Installer");
-  window.resize(800, 600);
-  window.setCentralWidget(wgt_central);
+  window.setWindowTitle("ali");
+  window.resize(800, 600);  // TODO may not be suitable
+  window.setCentralWidget(centre_widget);
 
   // nav
   // QPalette pal; // no affect
@@ -170,14 +143,10 @@ int main (int argc, char ** argv)
   // wgt_content->setAutoFillBackground(true);
   // wgt_content->setPalette(pal);
 
-  nav_layout->addWidget(nav_tree);
-
-  // content
-  //central_layout->addWidget(wgt_content);
-
   // always show Welcome initially
   nav_tree->show_welcome();
 
   window.show();
+
   return app.exec();
 }

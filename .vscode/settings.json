@@ -82,6 +82,10 @@
     "typeindex": "cpp",
     "typeinfo": "cpp",
     "variant": "cpp",
-    "qmainwindow": "cpp"
+    "qmainwindow": "cpp",
+    "qlineedit": "cpp",
+    "qstandarditemmodel": "cpp",
+    "qapplication": "cpp",
+    "source_location": "cpp"
   }
 }

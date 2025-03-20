@@ -1,8 +1,9 @@
 #include <ali/util.hpp>
+#include <string.h>
 #include <cstring>
 #include <libmount/libmount.h>
 
-static const std::string EfiPartitionType {"C12A7328-F81F-11D2-BA4B-00A0C93EC93B"};
+static const std::string EfiPartitionType {"c12a7328-f81f-11d2-ba4b-00a0c93ec93b"};
 
 
 // TODO could create child classes: BlocksProbe, PartsProbe, PartsBlocksProbe.
@@ -20,6 +21,8 @@ struct Probe
       blkid_probe_enable_superblocks(pr, 1);
       blkid_probe_set_superblocks_flags(pr, super_block_flags);
     }
+    else
+      std::cout << "probe on " << dev << " failed: " << strerror(errno) << '\n';
   }
 
   ~Probe()
@@ -37,34 +40,45 @@ struct Probe
 };
 
 
-static std::tuple<PartitionStatus, Partition> read_partition(const std::string_view part_dev)
+static std::tuple<PartitionStatus, Partition> read_partition2(const std::string_view part_dev)
 {
   std::cout << __FUNCTION__ << " - " << part_dev << '\n';
+
+  auto make_error = []{ return std::make_pair(PartitionStatus::Error, Partition{}); };
+
 
   Probe probe (part_dev);
 
   if (!probe.valid())
-    return {PartitionStatus::Error, Partition{}};
+    return make_error();
 
   PartitionStatus status{PartitionStatus::None};
 
   auto pr = probe.pr;
 
   // full probe required for PART_ENTRY values
-  blkid_do_fullprobe(pr); 
-
-  const char * type {nullptr}, * fs_size{nullptr}, * vfat_version{nullptr}, * type_uuid{nullptr};
-  int64_t size = 0;
-  size_t type_uuid_len{0};
-  bool isfat32 = false;
-
-  if (blkid_probe_has_value(pr, "TYPE") && blkid_probe_has_value(pr, "FSSIZE") && blkid_probe_has_value(pr, "PART_ENTRY_TYPE"))
+  if (const int r = blkid_do_fullprobe(pr) ; r == BLKID_PROBE_ERROR)
   {
+    std::cout << "ERROR: fullprobe failed: " << strerror(r) << '\n';
+    return make_error();
+  }
+  else
+  {
+    Partition partition;
+
+    if (!(blkid_probe_has_value(pr, "TYPE") && blkid_probe_has_value(pr, "FSSIZE") && blkid_probe_has_value(pr, "PART_ENTRY_TYPE")))
+      return make_error();
+    
+    const char * type {nullptr}, * fs_size{nullptr},
+               * vfat_version{nullptr}, * type_uuid{nullptr};
+    size_t type_uuid_len{0};
+    bool isfat32 = false;
+
     blkid_probe_lookup_value(pr, "TYPE", &type, nullptr);
     blkid_probe_lookup_value(pr, "FSSIZE", &fs_size, nullptr);
     blkid_probe_lookup_value(pr, "PART_ENTRY_TYPE", &type_uuid, &type_uuid_len);
 
-    size = std::strtoll (fs_size, nullptr, 10);
+    const int64_t size = std::strtoll (fs_size, nullptr, 10);
 
     if (std::strcmp(type, "vfat") == 0)
     {
@@ -74,7 +88,7 @@ static std::tuple<PartitionStatus, Partition> read_partition(const std::string_v
         if (isfat32 = (strcmp(vfat_version, "FAT32") == 0) ; !isfat32)
         {
           std::cout << "ERROR: vfat is not version FAT32\n";
-          status = PartitionStatus::Type;
+          status = PartitionStatus::Error;
         }
       }
       else
@@ -83,122 +97,49 @@ static std::tuple<PartitionStatus, Partition> read_partition(const std::string_v
         status = PartitionStatus::Error;
       }
     }
+
+    if (status == PartitionStatus::None)
+    {
+      partition.type_uuid = type_uuid;
+      partition.is_efi = partition.type_uuid == EfiPartitionType;
+      partition.type = isfat32 ? vfat_version : type;
+      partition.path = part_dev;
+      partition.size = size;
+      status = PartitionStatus::Ok;
+    }
+
+    return {status, partition};
   }
+}
+
+
+Partitions get_partitions()
+{
+  Partitions parts;
+
+  if (blkid_cache cache; blkid_get_cache(&cache, nullptr) != 0)
+    std::cout << "ERROR: could not create blkid cache\n";
   else
   {
-    std::cout << "ERROR: Could not get TYPE, FSSIZE and PART_ENTRY_TYPE\n";
-    status = PartitionStatus::Error;
-  }
-
-  Partition partition;
-
-  if (status == PartitionStatus::None)
-  {
-    // transform UUID to uppercase, avoiding trailing '\0'
-    std::for_each_n(type_uuid, type_uuid_len, [&dest = partition.type_uuid](const auto c)
-    {
-      if (c != '\0')
-        dest += ::toupper(c);
-    });
-
-    partition.is_efi = partition.type_uuid == EfiPartitionType;
-    partition.type = isfat32 ? vfat_version : type;
-    partition.path = part_dev;
-    partition.size = size;
-    status = PartitionStatus::Ok;
-  }
-
-  return {status, partition};
-}
-
-
-static std::vector<Partition> read_partitions(const std::string_view dev)
-{
-  std::cout << __FUNCTION__ << " - " << dev << '\n';
-
-  std::vector<Partition> partitions;
-
-  const blkid_probe pr = blkid_new_probe_from_filename(dev.data());
-
-  if (!pr)
-    return partitions;
-  
-  blkid_probe_enable_partitions(pr, 1);
-
-  if (blkid_do_probe(pr) != BLKID_PROBE_ERROR)
-  {
-    if (blkid_partlist ls = blkid_probe_get_partitions(pr); ls)
-    {
-      // primary partition table
-      blkid_parttable root_tab = blkid_partlist_get_table(ls);
-
-      if (root_tab && std::strcmp("gpt", blkid_parttable_get_type(root_tab)) == 0)
-      {
-        std::cout << std::format( "Size: {}, Type: {}, ID: {}", blkid_probe_get_size(pr),
-                                                                blkid_parttable_get_type(root_tab),
-                                                                blkid_parttable_get_id(root_tab));
-        std::cout << '\n';
-        
-        // probe each partition
-        if (const int nparts = blkid_partlist_numof_partitions(ls); nparts == BLKID_PROBE_ERROR)
-        {
-          std::cout << "Failed to request number of partitions for: " << dev << '\n';
-        }
-        else
-        {    
-          for (int i = 0; i < nparts; ++i)
-          {
-            blkid_partition par = blkid_partlist_get_partition(ls, i);
-            const int partNumber = blkid_partition_get_partno(par);
-            const std::string part_path = std::format("{}{}", dev, partNumber);
-            
-            if (auto [status,partition] = read_partition(part_path); status == PartitionStatus::Ok)
-              partitions.push_back(std::move(partition));
-          }
-        }
-      }
-    }
-  }
-
-  blkid_free_probe(pr);
-
-  return partitions;
-}
-
-
-DiskTree create_disk_tree ()
-{
-  static const fs::path SysPath {"/sys/block"};
-  static const fs::path DevPath {"/dev"};
-
-  DiskTree tree;
-
-  for (const auto& entry : fs::directory_iterator{SysPath})
-  {
-    const auto dev_path = (DevPath / entry.path().stem()).c_str();
-
-    std::cout << "Probing " << dev_path << '\n';
-    
-    if (blkid_probe pr = blkid_new_probe_from_filename(dev_path); !pr)
-    {
-      std::cout << "Failed to create a new probe for: " << dev_path << '\n';
-    }
+    if (blkid_probe_all(cache) != 0)
+      std::cout << "ERROR: blkid cache probe failed\n";
     else
     {
-      if (blkid_probe_enable_partitions(pr, 1) == BLKID_PROBE_OK)
+      const auto dev_it = blkid_dev_iterate_begin (cache);
+
+      for (blkid_dev dev; blkid_dev_next(dev_it, &dev) == 0; )
       {
-        if (blkid_do_probe(pr) == BLKID_PROBE_OK && blkid_probe_is_wholedisk(pr))
-        {
-          if (auto parts = read_partitions(dev_path); !parts.empty())
-            tree.set_partitions(dev_path, parts);
-        }
+        const auto dev_name = blkid_dev_devname(dev);
+        
+        if (auto [status, part] = read_partition2(dev_name); status == PartitionStatus::Ok)
+          parts.push_back(std::move(part));
       }
 
-      blkid_free_probe(pr);
+      blkid_dev_iterate_end(dev_it);
     }
   }
 
-  return tree;
+  return parts;
 }
 
 
@@ -259,6 +200,7 @@ bool is_dir_mounted(const std::string_view path)
 {
   return is_mounted(path, false);
 }
+
 
 bool is_dev_mounted(const std::string_view path)
 {

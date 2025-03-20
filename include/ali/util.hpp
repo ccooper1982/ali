@@ -45,6 +45,9 @@ struct Partition
 };
 
 
+using Partitions = std::vector<Partition>;
+
+
 struct DiskTree
 {
   using PartitionIt = std::vector<Partition>::iterator;
@@ -166,7 +169,8 @@ private:
 std::vector<Partition> read_disk(const std::string_view dev);
 PartitionStatus check_partition_status(const std::string_view part);
 std::vector<std::string> get_installable_devices();
-DiskTree create_disk_tree ();
+DiskTree create_disk_tree (); // TODO remove
+Partitions get_partitions();
 
 bool is_dir_mounted(const std::string_view path);
 bool is_dev_mounted(const std::string_view path);
