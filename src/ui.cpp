@@ -1,9 +1,11 @@
 
 #include <iostream>
 #include <map>
-#include <ali/widgets/welcome_widget.hpp>
 #include <ali/widgets/content_widget.hpp>
+#include <ali/widgets/welcome_widget.hpp>
 #include <ali/widgets/partitions_widget.hpp>
+#include <ali/widgets/network_widget.hpp>
+#include <ali/widgets/accounts_widget.hpp>
 #include <QApplication>
 #include <QLabel>
 #include <QFormLayout>
@@ -14,19 +16,9 @@
 #include <QTreeView>
 #include <QStandardItemModel>
 #include <QMainWindow>
+#include <QStyleFactory>
 
 
-struct NetworkWidget : public ContentWidget
-{
-  NetworkWidget(const QString& nav_name) : ContentWidget(nav_name)
-  {
-    QFormLayout * network_layout = new QFormLayout;
-    QLineEdit * ledit_hostname = new QLineEdit;
-    network_layout->addRow("Hostname: ", ledit_hostname);
-
-    setLayout(network_layout);
-  }
-};
 
 
 struct NavTree : public QTreeView
@@ -34,9 +26,10 @@ struct NavTree : public QTreeView
 private:
   const std::vector<ContentWidget*> NavItemToWidget = 
   {
-    new WelcomeWidget{"Welcome"},
-    new PartitionsWidget{"Mounts"},
-    new NetworkWidget{"Network"}
+    new WelcomeWidget,
+    new PartitionsWidget,
+    new NetworkWidget,
+    new AccountsWidget
     // Locales, Bootloader, Accounts, Profile, Audio, Video, Packages
   };
 
@@ -115,8 +108,17 @@ int main (int argc, char ** argv)
     static_assert(false, "ALI_PROD or ALI_DEV must be defined");
   #endif
 
+ 
   QApplication app(argc, argv);
   
+  if (QStyleFactory::keys().contains("Fusion"))
+  {
+    // TODO 
+    //  https://stackoverflow.com/questions/48256772/dark-theme-for-qt-widgets
+    //  https://github.com/Alexhuszagh/BreezeStyleSheets
+    QApplication::setStyle(QStyleFactory::create("Fusion"));
+  }
+
   // main window contains a widget which has a horizontal layout,
   // to which the Nav is added first. The layout is passed to the 
   // navigation tree so it can add/remove widgets as nav items are 
@@ -134,14 +136,8 @@ int main (int argc, char ** argv)
 
   QMainWindow window;
   window.setWindowTitle("ali");
-  window.resize(800, 600);  // TODO may not be suitable
+  window.resize(800, 600);  // TODO may be unsuitable
   window.setCentralWidget(centre_widget);
-
-  // nav
-  // QPalette pal; // no affect
-  // pal.setColor(QPalette::ColorRole::Window, Qt::white);
-  // wgt_content->setAutoFillBackground(true);
-  // wgt_content->setPalette(pal);
 
   // always show Welcome initially
   nav_tree->show_welcome();

@@ -7,10 +7,8 @@
 
 struct PartitionsWidget : public ContentWidget
 {
-  PartitionsWidget(const QString& nav_name);
-
-private:
-
+  PartitionsWidget();
+  virtual ~PartitionsWidget() = default;
 };
 
 

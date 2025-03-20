@@ -7,16 +7,18 @@
 
 struct WelcomeWidget : public ContentWidget
 {
-  WelcomeWidget(const QString& nav_name) : ContentWidget(nav_name)
+  WelcomeWidget() : ContentWidget("Start")
   {
     QVBoxLayout * layout = new QVBoxLayout;
     layout->setAlignment(Qt::AlignHCenter | Qt::AlignTop);
 
-    QLabel * label = new QLabel("Welcome");
+    QLabel * label = new QLabel("Arch Linux Installer");
     layout->addWidget(label);
 
     setLayout(layout);
   }
+
+  virtual ~WelcomeWidget() = default;
 };
 
 

@@ -105,7 +105,7 @@ static std::string format_size(const int64_t size)
 }
 
 
-PartitionsWidget::PartitionsWidget(const QString& nav_name) : ContentWidget(nav_name)
+PartitionsWidget::PartitionsWidget() : ContentWidget("Mounts")
 {
   static const int COL_DEV  = 0;
   static const int COL_FS   = 1;

@@ -10,16 +10,13 @@ struct ContentWidget : public QWidget
   {
     
   }
-
   
   virtual ~ContentWidget() = default;
 
-
-  virtual const QString get_nav_name() const
+  virtual const QString& get_nav_name() const
   {
     return m_nav_name;
   }
-
 
 private:
   QString m_nav_name;
