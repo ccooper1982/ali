@@ -148,3 +148,5 @@ openbox
 ttf-liberation
 networkmanager
 network-manager-applet
+# headers required by nvidia-open-dkms 
+linux-headers

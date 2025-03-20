@@ -6,6 +6,8 @@
 #include <ali/widgets/partitions_widget.hpp>
 #include <ali/widgets/network_widget.hpp>
 #include <ali/widgets/accounts_widget.hpp>
+#include <ali/widgets/packages_widget.hpp>
+//#include <ali/widgets/install_widget.hpp>
 #include <QApplication>
 #include <QLabel>
 #include <QFormLayout>
@@ -29,7 +31,9 @@ private:
     new WelcomeWidget,
     new PartitionsWidget,
     new NetworkWidget,
-    new AccountsWidget
+    new AccountsWidget,
+    new PackagesWidget
+    //new InstallWidget
     // Locales, Bootloader, Accounts, Profile, Audio, Video, Packages
   };
 

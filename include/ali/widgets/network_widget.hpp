@@ -19,8 +19,12 @@ struct NetworkWidget : public ContentWidget
     chkb_ntp = new QCheckBox();
     chkb_ntp->setChecked(true);
 
+    chkb_config = new QCheckBox("Use the current network config on the installed system.");
+    chkb_config->setChecked(true);
+
     layout->addRow("Hostname", edit_hostname);
     layout->addRow("NTP", chkb_ntp);
+    layout->addRow("Copy Config", chkb_config);
 
     setLayout(layout);
   }
@@ -28,6 +32,7 @@ struct NetworkWidget : public ContentWidget
 private:
   QLineEdit * edit_hostname;
   QCheckBox * chkb_ntp;
+  QCheckBox * chkb_config;
 };
 
 

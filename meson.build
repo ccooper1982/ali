@@ -34,6 +34,7 @@ sources = [
     #'src/console.cpp',
     'src/widgets/partitions_widget.cpp',
     'src/widgets/accounts_widget.cpp',
+    'src/widgets/packages_widget.cpp',
     'src/ui.cpp',
     'src/commands.cpp',
     'src/utils.cpp'

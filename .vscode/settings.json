@@ -86,6 +86,7 @@
     "qlineedit": "cpp",
     "qstandarditemmodel": "cpp",
     "qapplication": "cpp",
-    "source_location": "cpp"
+    "source_location": "cpp",
+    "qvboxlayout": "cpp"
   }
 }
