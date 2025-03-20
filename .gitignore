@@ -1,1 +1,3 @@
-archiso/iso/archlinux-2025.03.18-x86_64.iso
+archiso/iso/*
+archiso/default/airootfs/root/ali
+archiso/default/airootfs/root/ali
