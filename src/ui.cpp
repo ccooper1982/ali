@@ -2,24 +2,16 @@
 #include <iostream>
 #include <fstream>
 #include <map>
+#include <net/if.h>
+#include <arpa/inet.h>
 #include <QDebug>
-#include <QApplication>
-#include <QMessageBox>
-#include <QLabel>
-#include <QFormLayout>
-#include <QHBoxLayout>
-#include <QVBoxLayout>
-#include <QLineEdit>
-#include <QPushButton>
-#include <QTreeView>
-#include <QStandardItemModel>
-#include <QMainWindow>
-#include <QStyleFactory>
 #include <ali/widgets/widgets.hpp>
+#include <ali/commands.hpp>
 #include <ali/common.hpp>
 
 
-static const QString log_format{"%{type} - %{message}"};
+static const QString log_format{"%{type} - %{if-debug}%{function} - %{endif}%{message}"};
+
 static QFile log_file{InstallLogPath};
 static QFile log_file_alt{"./" / InstallLogPath.filename()};
 static QTextStream log_stream;
@@ -29,6 +21,127 @@ void log_handler(const QtMsgType type, const QMessageLogContext& ctx, const QStr
 {
   log_stream << qFormatLogMessage(type, ctx, m) << '\n';
   log_stream.flush();
+}
+
+
+
+bool check_commands_exist ()
+{
+  static const std::vector<std::string> Commands =
+  {
+    "pacman", "localectl", "locale-gen", "loadkeys", "setfont", "timedatectl", "ip", "lsblk", 
+    "mount", "swapon", "ln", "hwclock", "chpasswd", "passwd"
+
+    #ifdef ALI_PROD
+      ,"pacstrap", "genfstab", "arch-chroot"
+    #endif
+  };
+  
+  for (const auto& cmd : Commands)
+  {
+    if (CommandExist command {cmd}; !command.exists())
+    {
+      qCritical() << "Command does not exist: " << cmd ;
+      return false;
+    }
+  }
+  
+  return true;
+}
+
+
+bool check_platform_size ()
+{
+  bool valid = false;
+
+  PlatformSize ps;
+  if (const auto size = ps.get_size() ; size == 0)    
+  {
+    qCritical() << "Could not determine platform size";
+    if (!ps.platform_file_exist())
+      qCritical() << "You may have booted in BIOS or CSM mode";
+  }    
+  else if (size == 64)
+    valid = true;
+  else
+    qCritical() << "Only 64bit supported";  
+
+  return valid;
+}
+
+
+bool get_keymap (std::vector<std::string>& keys)
+{
+  Command cmd{"localectl list-keymaps", [&keys](std::string_view line)
+  {
+    keys.emplace_back(line);
+  }};
+
+  return cmd.execute() == CmdSuccess;
+}
+
+
+bool check_cpu_vendor ()
+{
+  CpuVendor cmd;
+  return cmd.get_vendor() != CpuVendor::Vendor::None;
+}
+
+
+bool check_connection()
+{
+  bool good = false;
+
+  if (int sockfd = socket(AF_INET, SOCK_STREAM, 0); sockfd > -1)
+  {
+    const timeval timeout { .tv_sec = 5,
+                            .tv_usec = 0};
+
+    const sockaddr_in addr = {.sin_family = AF_INET,
+                              .sin_port = htons(443),
+                              .sin_addr = inet_addr("8.8.8.8")};
+    
+    setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+    setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+    
+    good = connect(sockfd, (struct sockaddr *) &addr, sizeof(addr)) == 0;
+    
+    if (good)
+      close(sockfd);
+  }
+	
+  if (!good)
+    qCritical() << "Network connection failed";
+
+  return good;
+}
+
+
+static std::tuple<bool, std::string> startup_checks()
+{
+  // auto check = []<typename F, typename... Args>(F f, Args... args)  -> bool
+  //   requires (std::same_as<bool, std::invoke_result_t<Args...>>)
+  // {
+  //   return f(std::forward<Args>(args)...);
+  // };
+
+  auto fail = [](const std::string_view err = ""){ return std::make_tuple(false, std::string{err}); };
+
+  auto check = []<typename F>(F f) -> bool requires (std::same_as<bool, std::invoke_result_t<F>>)
+  {
+    return f();
+  };
+
+  if (!check(check_cpu_vendor))
+    return fail("CPU vendor not Intel/AMD, or not found");
+  else if (!check(check_commands_exist))
+    return fail("Not all required commands exist");
+  else if (!check(check_platform_size))
+    return fail("Platform size not found or not 64bit");
+  else if (!check(check_connection))
+    return fail("No active internet connection");
+  else
+    return {true, ""};
 }
 
 
@@ -118,7 +231,8 @@ int main (int argc, char ** argv)
   
   if (QStyleFactory::keys().contains("Fusion"))
   {
-    // TODO 
+    // TODO maybe. May not be worth the effort for some colors, except
+    //      for those who require high contrast
     //  https://stackoverflow.com/questions/48256772/dark-theme-for-qt-widgets
     //  https://github.com/Alexhuszagh/BreezeStyleSheets
     QApplication::setStyle(QStyleFactory::create("Fusion"));
@@ -148,6 +262,9 @@ int main (int argc, char ** argv)
 
   window.show();
 
+  // attempt to open log file in /var/log/ali,
+  // if it fails (which it shouldn't on live ISO), but will
+  // fail on dev when not run as sudo, so attempt path './'
   if (log_file.open(QFile::WriteOnly | QFile::Truncate))
   {
     log_stream.setDevice(&log_file);
@@ -169,8 +286,22 @@ int main (int argc, char ** argv)
     QMessageBox::warning(&window, "Log", QString{msg.c_str()});
   }
 
+  
+  // custom log handler and formatter, logging to file
   qSetMessagePattern(log_format);
   qInstallMessageHandler(log_handler);
 
-  return app.exec();
+
+  // perform startup checks
+  if (const auto [ok, err] = startup_checks(); !ok)
+  {
+    qCritical() << err;
+    QMessageBox::critical(&window, "Cannot Install", QString{err.c_str()});
+  }
+  else
+  {
+    return app.exec();
+  }
 }
+
+

@@ -36,7 +36,6 @@ struct SelectPackagesWidget : public QWidget
       chk->connect(chk, &QCheckBox::checkStateChanged, this, [this, chk, selected](const Qt::CheckState state)
       {        
         selected(chk->isChecked(), chk->text());
-        qDebug() << m_selected;
       });
       
       if (i++ == 0 && required)

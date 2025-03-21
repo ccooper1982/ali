@@ -120,6 +120,12 @@ PartitionsWidget::PartitionsWidget() : ContentWidget("Mounts")
   layout->addWidget(new QLabel("Partitions"));
 
   const Partitions partitions = get_partitions();
+
+  if (partitions.empty())
+  {
+    qCritical() << "No partitions found";
+  }
+
   SelectMounts * mounts_widget = new SelectMounts;
 
   auto table = new QTableWidget(partitions.size(), 4);

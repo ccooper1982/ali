@@ -88,6 +88,7 @@
     "qapplication": "cpp",
     "source_location": "cpp",
     "qvboxlayout": "cpp",
-    "qfilesystemwatcher": "cpp"
+    "qfilesystemwatcher": "cpp",
+    "filesystem": "cpp"
   }
 }

@@ -70,18 +70,16 @@ void InstallWidget::focusInEvent(QFocusEvent *event)
 
 void InstallWidget::validate()
 {
-  qDebug() << "validate()";
-
   bool valid {false};
 
-  // ask each widget if it's valid, except ourselves
+  // ask each widget, except ourselves, if it's valid
   for(const auto& widget : Widgets::all())
   {
     if (!widget->is_install_widget())
     {
       if (valid = widget->is_valid(); !valid)
       {
-        qDebug() << "invalid: " << widget->get_nav_name();
+        qWarning() << "Invalid: " << widget->get_nav_name();
         break;
       }
     }
@@ -94,6 +92,11 @@ void InstallWidget::validate()
 #ifdef ALI_PROD
 void InstallWidget::install()
 {
-  qDebug() << "Installing";
+  qInfo() << "Installing";
+
+  // offload the install to a dedicated class, passing
+  // everything it needs, keeping the UI somewhat separate
+  // from the core work
+  
 }
 #endif
