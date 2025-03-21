@@ -61,6 +61,7 @@ InstallWidget::InstallWidget() : ContentWidget("Install")
   setLayout(layout);
 }
 
+
 void InstallWidget::focusInEvent(QFocusEvent *event)
 {
   validate();

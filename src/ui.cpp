@@ -1,7 +1,10 @@
 
 #include <iostream>
+#include <fstream>
 #include <map>
+#include <QDebug>
 #include <QApplication>
+#include <QMessageBox>
 #include <QLabel>
 #include <QFormLayout>
 #include <QHBoxLayout>
@@ -14,6 +17,19 @@
 #include <QStyleFactory>
 #include <ali/widgets/widgets.hpp>
 #include <ali/common.hpp>
+
+
+static const QString log_format{"%{type} - %{message}"};
+static QFile log_file{InstallLogPath};
+static QFile log_file_alt{"./" / InstallLogPath.filename()};
+static QTextStream log_stream;
+
+
+void log_handler(const QtMsgType type, const QMessageLogContext& ctx, const QString& m)
+{
+  log_stream << qFormatLogMessage(type, ctx, m) << '\n';
+  log_stream.flush();
+}
 
 
 struct NavTree : public QTreeView
@@ -86,6 +102,7 @@ private:
 };
 
 
+
 int main (int argc, char ** argv)
 {
   #ifdef ALI_PROD
@@ -111,8 +128,6 @@ int main (int argc, char ** argv)
   // to which the Nav is added first. The layout is passed to the 
   // navigation tree so it can add/remove widgets as nav items are 
   // selected. 
-
-   
   QHBoxLayout * centre_layout = new QHBoxLayout;
   NavTree * nav_tree = new NavTree(centre_layout);
 
@@ -132,6 +147,30 @@ int main (int argc, char ** argv)
   nav_tree->show_welcome();
 
   window.show();
+
+  if (log_file.open(QFile::WriteOnly | QFile::Truncate))
+  {
+    log_stream.setDevice(&log_file);
+  }
+  else
+  {
+    const fs::path alt_path{fs::current_path() / InstallLogPath.filename()};
+
+    std::string msg{"Cannot open preferred log file for writing:\n" + InstallLogPath.string() + '\n'};
+
+    if (log_file_alt.open(QFile::WriteOnly | QFile::Truncate))
+    {
+      msg += "Using alternative:\n" + alt_path.string() ;
+      log_stream.setDevice(&log_file_alt);
+    }
+    else
+      msg += "Alternative failed: " + alt_path.string();
+
+    QMessageBox::warning(&window, "Log", QString{msg.c_str()});
+  }
+
+  qSetMessagePattern(log_format);
+  qInstallMessageHandler(log_handler);
 
   return app.exec();
 }
