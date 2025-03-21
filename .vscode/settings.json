@@ -87,6 +87,7 @@
     "qstandarditemmodel": "cpp",
     "qapplication": "cpp",
     "source_location": "cpp",
-    "qvboxlayout": "cpp"
+    "qvboxlayout": "cpp",
+    "qfilesystemwatcher": "cpp"
   }
 }

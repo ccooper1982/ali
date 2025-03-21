@@ -13,7 +13,12 @@ struct ContentWidget : public QWidget
   
   virtual ~ContentWidget() = default;
 
-  virtual const QString& get_nav_name() const
+  virtual bool is_valid()
+  {
+    return false;
+  }
+
+  const QString& get_nav_name() const
   {
     return m_nav_name;
   }

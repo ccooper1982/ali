@@ -1,13 +1,6 @@
 
 #include <iostream>
 #include <map>
-#include <ali/widgets/content_widget.hpp>
-#include <ali/widgets/welcome_widget.hpp>
-#include <ali/widgets/partitions_widget.hpp>
-#include <ali/widgets/network_widget.hpp>
-#include <ali/widgets/accounts_widget.hpp>
-#include <ali/widgets/packages_widget.hpp>
-//#include <ali/widgets/install_widget.hpp>
 #include <QApplication>
 #include <QLabel>
 #include <QFormLayout>
@@ -19,35 +12,24 @@
 #include <QStandardItemModel>
 #include <QMainWindow>
 #include <QStyleFactory>
-
-
+#include <ali/widgets/widgets.hpp>
+#include <ali/common.hpp>
 
 
 struct NavTree : public QTreeView
 {
-private:
-  const std::vector<ContentWidget*> NavItemToWidget = 
-  {
-    new WelcomeWidget,
-    new PartitionsWidget,
-    new NetworkWidget,
-    new AccountsWidget,
-    new PackagesWidget
-    //new InstallWidget
-    // Locales, Bootloader, Accounts, Profile, Audio, Video, Packages
-  };
-
 public:
 
   explicit NavTree(QLayout * const centre_layout) : m_centre_layout(centre_layout)
   {
     m_model = new QStandardItemModel{0,1};
 
-    for (const auto item : NavItemToWidget)
+    for (const auto item : Widgets::all())
       m_model->appendRow(new QStandardItem(item->get_nav_name()));
 
     setModel(m_model);
     setHeaderHidden(true);
+    setMinimumWidth(100);
     setMaximumWidth(150);
     setSelectionMode(QAbstractItemView::SelectionMode::SingleSelection);
     setSelectionBehavior(QAbstractItemView::SelectionBehavior::SelectRows);
@@ -60,9 +42,9 @@ public:
         const QModelIndex index = selectedIndexes.first(); 
         const QVariant data = m_model->data(index, Qt::DisplayRole);         
 
-        if (index.row() >= 0 && index.row() < std::ssize(NavItemToWidget))
+        if (index.row() >= 0 && index.row() < std::ssize(Widgets::all()))
         {
-          auto next = NavItemToWidget[index.row()];
+          auto next = Widgets::all()[index.row()];
 
           if (m_current)
           {
@@ -83,7 +65,7 @@ public:
 
   ~NavTree()
   {
-    for(auto& item : NavItemToWidget)
+    for(auto& item : Widgets::all())
       delete item;
   }
 
@@ -123,7 +105,7 @@ int main (int argc, char ** argv)
     QApplication::setStyle(QStyleFactory::create("Fusion"));
   }
 
-  // main window contains a widget which has a horizontal layout,
+  // main window contains a central widget which has a horizontal layout,
   // to which the Nav is added first. The layout is passed to the 
   // navigation tree so it can add/remove widgets as nav items are 
   // selected. 
@@ -131,7 +113,7 @@ int main (int argc, char ** argv)
   QHBoxLayout * centre_layout = new QHBoxLayout;
   NavTree * nav_tree = new NavTree(centre_layout);
 
-  centre_layout->setContentsMargins(0,5,0,0);
+  centre_layout->setContentsMargins(0,0,0,0);
   centre_layout->addWidget(nav_tree);
 
   QWidget * centre_widget = new QWidget;

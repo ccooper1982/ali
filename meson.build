@@ -31,10 +31,12 @@ qt6_dep = dependency('qt6', required: true, modules: ['Core', 'Gui', 'Widgets'])
 
 sources = [
     #'src/test.cpp',    
-    #'src/console.cpp',
+    #'src/console.cpp',    
     'src/widgets/partitions_widget.cpp',
     'src/widgets/accounts_widget.cpp',
     'src/widgets/packages_widget.cpp',
+    'src/widgets/install_widget.cpp',
+    'src/widgets/widgets.cpp',
     'src/ui.cpp',
     'src/commands.cpp',
     'src/utils.cpp'
