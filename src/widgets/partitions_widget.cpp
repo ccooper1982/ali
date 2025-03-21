@@ -16,6 +16,7 @@ struct HorizonalLine : public QFrame
   }
 };
 
+
 struct SelectMounts : public QWidget
 {
   SelectMounts(QWidget * parent = nullptr) : QWidget(parent)
@@ -171,4 +172,12 @@ PartitionsWidget::PartitionsWidget() : ContentWidget("Mounts")
 
   layout->addWidget(table);
   layout->addWidget(mounts_widget);
+}
+
+
+bool PartitionsWidget::is_valid()
+{
+  // widget only allows appropriate partitions
+  // for the mount points.
+  return true;
 }

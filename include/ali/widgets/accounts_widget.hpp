@@ -8,12 +8,14 @@
 struct AccountsWidget : public ContentWidget
 {
   AccountsWidget();
-  virtual ~AccountsWidget() = default;
+  virtual ~AccountsWidget() = default;  
+
+  virtual bool is_valid() override;
 
 private:
-  QLineEdit * root_pass;
-  QLineEdit * user_username;
-  QLineEdit * user_pass;
+  QLineEdit * m_root_pass;
+  QLineEdit * m_user_username;
+  QLineEdit * m_user_pass;
 };
 
 

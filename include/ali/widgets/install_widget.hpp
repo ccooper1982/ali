@@ -14,13 +14,23 @@ struct InstallWidget : public ContentWidget
 
   virtual ~InstallWidget() = default;
 
+protected:
+  virtual void focusInEvent(QFocusEvent *event) override;
+  
 private:
   void validate();
 
+  virtual bool is_install_widget() const override
+  {
+    return true;
+  }
+
   #ifdef ALI_PROD
     void install();
+    virtual bool is_valid() override { return true; }
   #else
     void install(){};
+    virtual bool is_valid() override { return false; }
   #endif
 
 private:

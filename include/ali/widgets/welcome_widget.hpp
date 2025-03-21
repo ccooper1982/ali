@@ -39,6 +39,8 @@ struct WelcomeWidget : public ContentWidget
   }
 
   virtual ~WelcomeWidget() = default;
+
+  virtual bool is_valid() override { return true; }
 };
 
 

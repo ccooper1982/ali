@@ -96,3 +96,11 @@ PackagesWidget::PackagesWidget() : ContentWidget("Packages")
   
   setLayout(layout);
 }
+
+
+bool PackagesWidget::is_valid()
+{
+  const bool valid = !m_required->get_selected().empty() &&
+                     !m_kernels->get_selected().empty(); 
+  return valid;
+}

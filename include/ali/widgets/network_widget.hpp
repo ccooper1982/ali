@@ -29,6 +29,12 @@ struct NetworkWidget : public ContentWidget
     setLayout(layout);
   }
 
+  virtual bool is_valid() override
+  {
+    return !edit_hostname->text().isEmpty();
+  }
+
+
 private:
   QLineEdit * edit_hostname;
   QCheckBox * chkb_ntp;

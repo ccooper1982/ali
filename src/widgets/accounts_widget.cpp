@@ -14,9 +14,9 @@ AccountsWidget::AccountsWidget() : ContentWidget("Accounts")
   
   {
     QFormLayout * root_layout = new QFormLayout;
-    root_pass = new QLineEdit("arch");
-    root_pass->setMaximumWidth(150);
-    root_layout->addRow("Root Password", root_pass);
+    m_root_pass = new QLineEdit("arch");
+    m_root_pass->setMaximumWidth(150);
+    root_layout->addRow("Root Password", m_root_pass);
 
     QGroupBox * root_group = new QGroupBox{"Root"};
     root_group->setLayout(root_layout);
@@ -26,14 +26,14 @@ AccountsWidget::AccountsWidget() : ContentWidget("Accounts")
   {
     QFormLayout * user_layout = new QFormLayout;
 
-    user_username = new QLineEdit;
-    user_username->setMaximumWidth(150);
+    m_user_username = new QLineEdit;
+    m_user_username->setMaximumWidth(150);
 
-    user_pass = new QLineEdit;
-    user_pass->setMaximumWidth(150);
+    m_user_pass = new QLineEdit;
+    m_user_pass->setMaximumWidth(150);
 
-    user_layout->addRow("Username", user_username);
-    user_layout->addRow("Password", user_pass);
+    user_layout->addRow("Username", m_user_username);
+    user_layout->addRow("Password", m_user_pass);
 
     QGroupBox * user_group = new QGroupBox{"User"};
     user_group->setLayout(user_layout);
@@ -41,4 +41,11 @@ AccountsWidget::AccountsWidget() : ContentWidget("Accounts")
   }
 
   setLayout(layout);
+}
+
+
+bool AccountsWidget::is_valid()
+{
+  // NOTE: don't force a non-privileged account
+  return !m_root_pass->text().isEmpty();
 }

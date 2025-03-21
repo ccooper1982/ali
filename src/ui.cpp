@@ -58,6 +58,10 @@ public:
 
           m_current = next;
           m_current->show();
+          // need setFocus(), so the InstallWidget triggers a validation check
+          // can't do in the InstallWidget::InstallWidget() because it creates
+          // a recursive call stack 
+          m_current->setFocus(Qt::FocusReason::ActiveWindowFocusReason);
         }
       }
     });
@@ -80,8 +84,6 @@ private:
   QStandardItemModel * m_model;
   QModelIndex m_welcome_index;
 };
-
-
 
 
 int main (int argc, char ** argv)
@@ -110,6 +112,7 @@ int main (int argc, char ** argv)
   // navigation tree so it can add/remove widgets as nav items are 
   // selected. 
 
+   
   QHBoxLayout * centre_layout = new QHBoxLayout;
   NavTree * nav_tree = new NavTree(centre_layout);
 

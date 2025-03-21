@@ -14,11 +14,10 @@ struct PackagesWidget : public ContentWidget
   PackagesWidget();
   virtual ~PackagesWidget() = default;
 
-private:
-  // QSet<QString> m_kernels;
-  // QSet<QString> m_required;
-  // QSet<QString> m_extra;
+  virtual bool is_valid() override;
 
+private:
+  
   SelectPackagesWidget * m_required;
   SelectPackagesWidget * m_kernels;
   SelectPackagesWidget * m_firmware;

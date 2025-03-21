@@ -13,15 +13,11 @@ struct ContentWidget : public QWidget
   
   virtual ~ContentWidget() = default;
 
-  virtual bool is_valid()
-  {
-    return false;
-  }
+  virtual bool is_valid() = 0;
 
-  const QString& get_nav_name() const
-  {
-    return m_nav_name;
-  }
+  virtual bool is_install_widget() const { return false; }
+
+  const QString& get_nav_name() const { return m_nav_name; }
 
 private:
   QString m_nav_name;

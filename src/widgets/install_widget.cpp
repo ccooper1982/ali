@@ -1,4 +1,6 @@
 #include <ali/widgets/install_widget.hpp>
+#include <ali/widgets/widgets.hpp>
+
 
 static const QString waffle = R"!(
 ### Check
@@ -41,13 +43,14 @@ InstallWidget::InstallWidget() : ContentWidget("Install")
 
   layout->addWidget(lbl_waffle);
 
+  m_btn_install = new QPushButton("Install");
+  m_btn_install->setMaximumWidth(100);
+  
   #ifdef ALI_PROD
-    QPushButton * btn_install = new QPushButton("Install");
-    btn_install->setMaximumWidth(100);
-    connect(btn_install, &QPushButton::clicked, this, &InstallWidget::install);
-
-    layout->addWidget(btn_install, 0, Qt::AlignHCenter);
+    connect(m_btn_install, &QPushButton::clicked, this, &InstallWidget::install);
   #endif
+
+  layout->addWidget(m_btn_install, 0, Qt::AlignHCenter);
 
   m_log_widget = new LogWidget;
   m_log_widget->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
@@ -56,18 +59,40 @@ InstallWidget::InstallWidget() : ContentWidget("Install")
   layout->addStretch(1);
 
   setLayout(layout);
+}
 
+void InstallWidget::focusInEvent(QFocusEvent *event)
+{
   validate();
 }
 
+
 void InstallWidget::validate()
 {
-  // ask each widget if it's valid
+  qDebug() << "validate()";
+
+  bool valid {false};
+
+  // ask each widget if it's valid, except ourselves
+  for(const auto& widget : Widgets::all())
+  {
+    if (!widget->is_install_widget())
+    {
+      if (valid = widget->is_valid(); !valid)
+      {
+        qDebug() << "invalid: " << widget->get_nav_name();
+        break;
+      }
+    }
+  }
+  
+  m_btn_install->setEnabled(valid);
 }
+
 
 #ifdef ALI_PROD
 void InstallWidget::install()
 {
-  
+  qDebug() << "Installing";
 }
 #endif

@@ -9,6 +9,8 @@ struct PartitionsWidget : public ContentWidget
 {
   PartitionsWidget();
   virtual ~PartitionsWidget() = default;
+
+  virtual bool is_valid() override;
 };
 
 
