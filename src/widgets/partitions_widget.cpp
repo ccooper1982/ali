@@ -126,7 +126,7 @@ PartitionsWidget::PartitionsWidget() : ContentWidget("Mounts")
     qCritical() << "No partitions found";
   }
 
-  SelectMounts * mounts_widget = new SelectMounts;
+  m_mounts_widget = new SelectMounts;
 
   auto table = new QTableWidget(partitions.size(), 4);
   table->verticalHeader()->hide();
@@ -162,11 +162,11 @@ PartitionsWidget::PartitionsWidget() : ContentWidget("Mounts")
     ++row;
 
     if (part.is_efi)
-      mounts_widget->add_boot(path);
+      m_mounts_widget->add_boot(path);
     else
     {
-      mounts_widget->add_home(path);
-      mounts_widget->add_root(path);
+      m_mounts_widget->add_home(path);
+      m_mounts_widget->add_root(path);
     }
   }
 
@@ -177,7 +177,7 @@ PartitionsWidget::PartitionsWidget() : ContentWidget("Mounts")
   table->resizeRowsToContents();
 
   layout->addWidget(table);
-  layout->addWidget(mounts_widget);
+  layout->addWidget(m_mounts_widget);
 }
 
 
@@ -186,4 +186,12 @@ bool PartitionsWidget::is_valid()
   // widget only allows appropriate partitions
   // for the mount points.
   return true;
+}
+
+
+PartitionData PartitionsWidget::get_data()
+{
+  return PartitionData {.root = m_mounts_widget->get_root().toStdString(),
+                        .boot = m_mounts_widget->get_boot().toStdString(),
+                        .home = m_mounts_widget->get_home().toStdString()};
 }

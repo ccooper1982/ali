@@ -1,5 +1,6 @@
 #include <ali/widgets/install_widget.hpp>
 #include <ali/widgets/widgets.hpp>
+#include <ali/install.hpp>
 
 
 static const QString waffle = R"!(
@@ -8,8 +9,9 @@ static const QString waffle = R"!(
 - If you have a dedicated partition for `/home`, bigger is better
 
 ### Log
-- The commands and steps executed are shown below
-- There is a log file created, the path for which is below
+- A log file is created in `/var/log/ali/install.log`
+- The log below does not show all output (such as from pacstrap), but
+  the log file contains all output
 
 ---
 
@@ -21,6 +23,7 @@ struct LogWidget : public QPlainTextEdit
   LogWidget()
   {
     setReadOnly(true);
+    setWordWrapMode(QTextOption::WrapMode::NoWrap);
     setMinimumHeight(400);
     setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
     setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
@@ -85,6 +88,11 @@ void InstallWidget::validate()
     }
   }
   
+  if (valid)
+  {
+    qInfo() << "Validation passed";
+  }
+  
   m_btn_install->setEnabled(valid);
 }
 
@@ -98,5 +106,22 @@ void InstallWidget::install()
   // everything it needs, keeping the UI somewhat separate
   // from the core work
   
+  try
+  {
+    m_btn_install->setEnabled(false);
+
+    Install installer {[this](const std::string_view& m)
+    {
+      m_log_widget->appendPlainText(QString::fromLocal8Bit(m.data(), m.size())); 
+    }};
+
+    installer.install();
+  }
+  catch(const std::exception& e)
+  {
+    qCritical() << e.what();
+  }
+
+  m_btn_install->setEnabled(true);  
 }
 #endif

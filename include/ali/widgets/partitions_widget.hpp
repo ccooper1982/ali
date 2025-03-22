@@ -5,12 +5,27 @@
 #include <QString>
 
 
+struct PartitionData
+{
+  std::string root;
+  std::string boot;
+  std::string home;
+};
+
+
+struct SelectMounts;
+
 struct PartitionsWidget : public ContentWidget
 {
   PartitionsWidget();
   virtual ~PartitionsWidget() = default;
 
   virtual bool is_valid() override;
+
+  PartitionData get_data() ;
+
+private:
+  SelectMounts * m_mounts_widget;
 };
 
 

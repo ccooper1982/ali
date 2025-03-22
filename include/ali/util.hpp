@@ -6,6 +6,7 @@
 #include <string_view>
 #include <iostream>
 #include <format>
+#include <sys/mount.h>
 #include <blkid/blkid.h>
 #include <ali/common.hpp>
 

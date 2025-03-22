@@ -226,7 +226,32 @@ int main (int argc, char ** argv)
     static_assert(false, "ALI_PROD or ALI_DEV must be defined");
   #endif
 
- 
+  // log_file.open(QFile::WriteOnly | QFile::Truncate);
+  // log_stream.setDevice(&log_file);
+
+  // qSetMessagePattern(log_format);
+  // qInstallMessageHandler(log_handler);
+
+  // bool firmware_warning = false;
+  // Command pacstrap {"pacstrap -K /asdasdas", [&firmware_warning](const std::string_view out)
+  // {    
+  //   qInfo() << out;
+    
+  //   if (out.find("Possibly missing firmware for module:") != std::string::npos)
+  //     firmware_warning = true;
+  // }};
+  
+  // bool ok = true;
+  // if (pacstrap.execute() != CmdSuccess)
+  // {
+  //   qCritical() << "pacstrap failed";
+  //   qInfo() << "ERROR: pacstrap failed - manual intervention required";
+  //   ok = false;
+  // }
+
+  // return 0;
+  
+  
   QApplication app(argc, argv);
   
   if (QStyleFactory::keys().contains("Fusion"))
@@ -262,9 +287,13 @@ int main (int argc, char ** argv)
 
   window.show();
 
+
   // attempt to open log file in /var/log/ali,
   // if it fails (which it shouldn't on live ISO), but will
   // fail on dev when not run as sudo, so attempt path './'
+  if (!fs::exists(InstallLogPath.parent_path()))
+    fs::create_directory(InstallLogPath.parent_path());
+  
   if (log_file.open(QFile::WriteOnly | QFile::Truncate))
   {
     log_stream.setDevice(&log_file);

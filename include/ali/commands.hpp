@@ -21,13 +21,14 @@ struct Command
   // Run command and receive each line in the supplied callback.
   Command (const std::string_view cmd, std::function<void(const std::string_view)>&& on_output) ;
   
-  virtual int operator()();
+  //virtual int operator()();
   
   int execute (const std::string_view cmd, const int max_lines = -1);
   int execute (const int max_lines = -1);
   int execute_write(const std::string_view s);
   
-  void trim_newline(const bool trim) { m_trim_newline = trim; }
+  int get_result() const { return m_result; }
+  //void trim_newline(const bool trim) { m_trim_newline = trim; }
 
 protected:
   bool executed() const { return m_executed; }
@@ -36,7 +37,8 @@ private:
   std::string m_cmd;
   std::function<void(const std::string_view)> m_handler;
   bool m_executed{false};
-  bool m_trim_newline{true};
+  //bool m_trim_newline{true};
+  int m_result{0};
 };
 
 
@@ -48,7 +50,7 @@ public:
 
 
 private:
-  virtual int operator()() override;
+  //virtual int operator()() override;
   void on_output(const std::string_view line);
   
 private:
@@ -68,7 +70,7 @@ struct PlatformSize : public Command
 
   bool platform_file_exist() const;
 
-  virtual int operator()() override;
+  //virtual int operator()() override;
 
 private:
   int m_size{0};
@@ -86,7 +88,7 @@ struct CpuVendor : public Command
 
   Vendor get_vendor ();
 
-  virtual int operator()() override;
+  //virtual int operator()() override;
 
 private:
   Vendor m_vendor {Vendor::None};
@@ -98,7 +100,7 @@ struct TimezoneList : public Command
   TimezoneList(std::vector<std::string>& zones) ;
 
   void on_output(const std::string_view line);
-  virtual int operator()() override;
+  //virtual int operator()() override;
 
   void get_zones();
 

@@ -1,6 +1,7 @@
 #include <ali/commands.hpp>
 #include <ali/common.hpp>
 #include <iostream>
+#include <QDebug>
 
 
 // Command
@@ -24,10 +25,10 @@ Command::Command (const std::string_view cmd, std::function<void(const std::stri
 {
 }
 
-int Command::operator()()
-{
-  return execute();
-}
+// int Command::operator()()
+// {
+//   return execute();
+// }
 
 
 int Command::execute (const std::string_view cmd, const int max_lines)
@@ -37,29 +38,37 @@ int Command::execute (const std::string_view cmd, const int max_lines)
   if (cmd.empty())
     return CmdSuccess;
 
-  if (FILE * fd = ::popen(cmd.data(), "r"); fd)
+  // redirect stderr to stdout (pacstrap, and perhaps others, output to stderr when mount point doesn't exist)
+  if (FILE * fd = ::popen(std::format("{} {}", cmd, "2>&1").data(), "r"); fd)
   {
-    char buff[1024];
+    char buff[4096];
     int n_lines{0};
-
-    while (fgets(buff, sizeof(buff), fd) != nullptr)
+    size_t n_chars{0};
+    
+    for (char c ; ((c = fgetc(fd)) != EOF) && n_chars < sizeof(buff); )
     {
-      if (m_handler)
+      if (!m_handler)
+        continue;
+            
+      if (c == '\n')
       {
-        std::string_view sv{buff};
-        
-        if (m_trim_newline && sv.ends_with('\n'))
-          sv.remove_suffix(1);
-        
-        m_handler(sv);
-      }        
+        m_handler(std::string_view {buff, n_chars});
 
-      if (++n_lines == max_lines)
-        break;
+        if (++n_lines == max_lines)
+          break;
+
+        n_chars = 0;
+      }
+      else
+      {
+        buff[n_chars++] = c;
+      }
     }
     
-    
-    return pclose(fd);
+    if (m_handler && n_chars)
+      m_handler(std::string_view {buff, n_chars});
+
+    return (m_result = pclose(fd));
   }
   else
     return CmdFail;
@@ -96,24 +105,23 @@ CommandExist::CommandExist (const std::string_view program) :
 bool CommandExist::exists()
 {
   execute();
-  return !m_missing;
+  return get_result() == CmdSuccess;
 }
 
-int CommandExist::operator()()
-{
-  return exists() ? CmdSuccess : -1;
-} 
+// int CommandExist::operator()()
+// {
+//   return exists() ? CmdSuccess : CmdFail;
+// } 
 
 void CommandExist::on_output(const std::string_view line)
 {
-  // if program not found, fgets() has no work so this is not
-  // called, but have this here for brevity
   m_missing = line.empty() || line.size() == 1;
 }
 
 
 
-//
+// TODO don't like this: get_size() returning int because it's same as also used
+//      to signal failure. Should be std::size_t, and fail is 0.
 PlatformSize::PlatformSize() : Command(std::bind_front(&PlatformSize::on_output, std::ref(*this)))
 {
 }
@@ -127,7 +135,8 @@ void PlatformSize::on_output(const std::string_view line)
   }
   catch(const std::exception& e)
   {
-    std::cerr << e.what() << '\n';
+    qCritical() << e.what();
+    m_size = 0;
   }
 }
 
@@ -136,7 +145,7 @@ int PlatformSize::get_size ()
   static const std::string file {"/sys/firmware/efi/fw_platform_size"};
 
   if (m_exists = fs::exists(file) ; m_exists)
-    return execute(std::format("cat {}", file), 1) == CmdSuccess ? m_size : CmdFail;
+    return execute(std::format("cat {}", file), 1) == CmdSuccess ? m_size : 0;
   else
     return CmdFail;
 }
@@ -146,10 +155,10 @@ bool PlatformSize::platform_file_exist() const
   return m_exists;
 }
 
-int PlatformSize::operator()()
-{
-  return get_size() ;
-}
+// int PlatformSize::operator()()
+// {
+//   return get_size() ;
+// }
 
 
 //
@@ -172,10 +181,10 @@ CpuVendor::Vendor CpuVendor::get_vendor ()
   return execute(1) == CmdSuccess ? m_vendor : Vendor::None;
 }
 
-int CpuVendor::operator()()
-{
-  return get_vendor() == Vendor::None ? CmdFail : CmdSuccess;
-}
+// int CpuVendor::operator()()
+// {
+//   return get_vendor() == Vendor::None ? CmdFail : CmdSuccess;
+// }
 
 
 //
@@ -192,14 +201,14 @@ void TimezoneList::on_output(const std::string_view line)
     m_zones.emplace_back(line);
 }
 
-int TimezoneList::operator()()
-{
-  get_zones();  
-  return m_zones.empty() ? CmdFail : CmdSuccess;
-}
+// int TimezoneList::operator()()
+// {
+//   get_zones();  
+//   return m_zones.empty() ? CmdFail : CmdSuccess;
+// }
 
 void TimezoneList::get_zones()
 {
-  if (!executed())
+  if (m_zones.empty())
     execute();
 }

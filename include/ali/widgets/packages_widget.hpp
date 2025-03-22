@@ -2,12 +2,20 @@
 #define ALI_PACKAGESWIDGET_H
 
 #include <ali/widgets/content_widget.hpp>
-#include <QFormLayout>
-#include <QLineEdit>
-#include <QCheckBox>
 #include <QSet>
+#include <QString>
+
 
 struct SelectPackagesWidget;
+
+struct PackageData
+{
+  // required: 'base' and 'amd-ucode'/'intel-ucode'
+  //           kernels are selected separately
+  QSet<QString> required; 
+  QSet<QString> kernels;
+  QSet<QString> firmware;
+};
 
 struct PackagesWidget : public ContentWidget
 {
@@ -15,6 +23,8 @@ struct PackagesWidget : public ContentWidget
   virtual ~PackagesWidget() = default;
 
   virtual bool is_valid() override;
+
+  PackageData get_data();
 
 private:
   
