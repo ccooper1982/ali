@@ -26,30 +26,34 @@ endif
 blkid_dep = dependency('blkid', required: true)
 libmount_dep = dependency('mount', required: true)
 
-#qt6 = import('qt6')
-qt6_dep = dependency('qt6', required: true, modules: ['Core', 'Gui', 'Widgets'])
+
+
 
 sources = [
     #'src/test.cpp',    
-    #'src/console.cpp',    
+    #'src/console.cpp',
+    'src/install.cpp',
+    'src/commands.cpp',
+    'src/utils.cpp',
     'src/widgets/partitions_widget.cpp',
     'src/widgets/accounts_widget.cpp',
     'src/widgets/packages_widget.cpp',
     'src/widgets/install_widget.cpp',
-    'src/widgets/widgets.cpp',
-    'src/install.cpp',
-    'src/commands.cpp',
-    'src/utils.cpp',
+    'src/widgets/widgets.cpp',    
     'src/ui.cpp'
     ]
 
 includes = include_directories('include')
 
-# moc_files = qt6.compile_moc(headers : 'myclass.h',
-#                             include_directories: includes,
-#                             dependencies: qt6_dep)
+qt6_dep = dependency('qt6', required: true, modules: ['Core', 'Gui', 'Widgets'])
+
+qt6 = import('qt6')
+moc_files = qt6.compile_moc(headers : 'include/ali/install.hpp',
+                            include_directories: includes,
+                            dependencies: qt6_dep)
 
 executable( meson.project_name(),
             sources,
+            moc_files,
             include_directories: includes,
             dependencies: [blkid_dep, libmount_dep, qt6_dep])

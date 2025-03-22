@@ -2,8 +2,10 @@
 #define ALI_INSTALLWIDGET_H
 
 #include <QFileSystemWatcher>
-#include <ali/widgets/content_widget.hpp>
+#include <thread>
 #include <ali/common.hpp>
+#include <ali/widgets/content_widget.hpp>
+#include <ali/install.hpp>
 
 struct LogWidget;
 
@@ -12,7 +14,7 @@ struct InstallWidget : public ContentWidget
 {
   InstallWidget() ;
 
-  virtual ~InstallWidget() = default;
+  virtual ~InstallWidget();
 
 protected:
   virtual void focusInEvent(QFocusEvent *event) override;
@@ -36,6 +38,8 @@ private:
 private:
   LogWidget * m_log_widget;
   QPushButton * m_btn_install{nullptr};
+  std::jthread m_install_thread;
+  Install m_installer;
 };
 
 

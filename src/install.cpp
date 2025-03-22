@@ -11,48 +11,41 @@
 // when calling the progress handler.
 
 
-Install::Install(ProgressHandler&& progress_handler) : m_progress(std::move(progress_handler))
-{
-
-}
-
 
 bool Install::install ()
 {
-  if (!m_progress)
-  {
-    qCritical() << "Log handler not set";
-    return false;
-  }
-
-  
   // mount, pacman_strap, fstab
-  // locacle(timezone, locale.conf, keymap for vconsole), clock sync, 
+  // locale(timezone, locale.conf, keymap for vconsole), clock sync, 
   // network conf, passwords, bootloader
   
   bool ok = false;
   try
   {
-    m_progress("Starting");
+    log("Starting");
     
     ok = mount() && pacman_strap();
     
-    m_progress("Complete");
+    log("Complete");
   }
   catch(const std::exception& e)
   {
     qCritical() << e.what();
-    m_progress(e.what());
+    log(e.what());
   }
   catch (...)
   {
     qCritical() << "Install::install() encountered an unknown exception";
-    m_progress("Install::install() encountered an unknown exception");
+    log("Install::install() encountered an unknown exception");
   }
 
   return ok;
 }
 
+
+void Install::log(const std::string_view msg)
+{
+  emit on_log(QString::fromLocal8Bit(msg.data(), msg.size()));
+}
 
 // mounting
 bool Install::do_mount(const std::string_view dev, const std::string_view path, const std::string_view fs)
@@ -75,13 +68,13 @@ bool Install::mount()
   
   if (is_dir_mounted(BootMnt.string()))
   {
-    m_progress(std::format("{} is already mounted, unmounting", BootMnt.c_str()));
+    log(std::format("{} is already mounted, unmounting", BootMnt.c_str()));
     ::umount(BootMnt.c_str());
   }
 
   if (is_dir_mounted(RootMnt.string()))
   {
-    m_progress(std::format("{} is already mounted, unmounting", RootMnt.c_str()));
+    log(std::format("{} is already mounted, unmounting", RootMnt.c_str()));
     ::umount(RootMnt.c_str());
   }
 
@@ -89,10 +82,10 @@ bool Install::mount()
   const bool mounted_boot = do_mount(parts_data.boot, BootMnt.c_str(), "vfat");
   
   if (mounted_root)
-    m_progress(std::format("Mounted {} -> {}", RootMnt.c_str(), parts_data.root));
+    log(std::format("Mounted {} -> {}", RootMnt.c_str(), parts_data.root));
 
   if (mounted_boot)
-    m_progress(std::format("Mounted {} -> {}", BootMnt.c_str(), parts_data.boot));
+    log(std::format("Mounted {} -> {}", BootMnt.c_str(), parts_data.boot));
 
   return mounted_root && mounted_boot;
 }
@@ -130,7 +123,7 @@ bool Install::pacman_strap()
 
   qInfo() << "Calling: " << cmd_string;
 
-  m_progress("Running pacstrap");
+  log("Running pacstrap");
 
   // intercept missing firmware from pacstrap
   bool firmware_warning = false;
@@ -146,15 +139,13 @@ bool Install::pacman_strap()
   if (pacstrap.execute() != CmdSuccess)
   {
     qCritical() << "pacstrap failed";
-    m_progress("ERROR: pacstrap failed - manual intervention required");
+    log("ERROR: pacstrap failed - manual intervention required");
     ok = false;
   }
   else if (firmware_warning)
-  {
-    m_progress("NOTE: warnings of missing firmware. This can be fixed post-install");
-  }
+    log("NOTE: warnings of missing firmware. This can be fixed post-install");
   else
-    m_progress("Done");
+    log("Done");
 
 
   qDebug() << "Leaving";

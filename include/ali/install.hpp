@@ -3,24 +3,34 @@
 
 #include <functional>
 #include <QString>
+#include <QObject>
 
-class Install
+
+class Install : public QObject
 {
-public:
-  using ProgressHandler = std::function<void(const std::string_view&)>;
+  Q_OBJECT
 
-  Install(ProgressHandler&& log_handler);
+public:
+  //using ProgressHandler = std::function<void(const std::string_view&)>;
+
+  Install() = default;
+  virtual ~Install() = default;
 
   bool install ();
 
+signals:
+  void on_log(const QString msg);
+
 private:
+  void log(const std::string_view msg);
+
   bool do_mount(const std::string_view dev, const std::string_view path, const std::string_view fs);
   bool mount();
   
   bool pacman_strap();
 
 private:
-  ProgressHandler m_progress;
+  //ProgressHandler m_progress;
 };
 
 #endif

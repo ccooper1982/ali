@@ -1,6 +1,5 @@
 #include <ali/widgets/install_widget.hpp>
 #include <ali/widgets/widgets.hpp>
-#include <ali/install.hpp>
 
 
 static const QString waffle = R"!(
@@ -29,8 +28,6 @@ struct LogWidget : public QPlainTextEdit
     setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
   }
-
-private:
 };
 
 
@@ -49,10 +46,6 @@ InstallWidget::InstallWidget() : ContentWidget("Install")
   m_btn_install = new QPushButton("Install");
   m_btn_install->setMaximumWidth(100);
   
-  #ifdef ALI_PROD
-    connect(m_btn_install, &QPushButton::clicked, this, &InstallWidget::install);
-  #endif
-
   layout->addWidget(m_btn_install, 0, Qt::AlignHCenter);
 
   m_log_widget = new LogWidget;
@@ -62,6 +55,22 @@ InstallWidget::InstallWidget() : ContentWidget("Install")
   layout->addStretch(1);
 
   setLayout(layout);
+
+  connect(&m_installer, &Install::on_log, this, [this](const QString msg)
+  {
+    m_log_widget->appendPlainText(msg);
+  });
+
+  #ifdef ALI_PROD
+    connect(m_btn_install, &QPushButton::clicked, this, &InstallWidget::install);
+  #endif
+}
+
+
+InstallWidget::~InstallWidget()
+{
+  // TODO don't need to join install thread, but may need
+  //      a way to cancel Install::install()
 }
 
 
@@ -109,16 +118,12 @@ void InstallWidget::install()
   try
   {
     m_btn_install->setEnabled(false);
-
-    Install installer {[this](const std::string_view& m)
-    {
-      m_log_widget->appendPlainText(QString::fromLocal8Bit(m.data(), m.size())); 
-    }};
-
-    installer.install();
+    
+    m_install_thread = std::move(std::jthread([this](){ m_installer.install(); }));
   }
   catch(const std::exception& e)
   {
+    m_log_widget->appendPlainText(QString::fromStdString(std::format("ERROR: exception: {}", e.what())));
     qCritical() << e.what();
   }
 
