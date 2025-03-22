@@ -26,7 +26,11 @@ void Install::log_stage_end(const std::string_view msg)
   emit on_stage_end(QString::fromLocal8Bit(msg.data(), msg.size()));
 }
 
-
+void Install::log_critical(const std::string_view msg)
+{
+  qCritical() << msg;
+  log(msg);
+}
 
 bool Install::install ()
 {
@@ -40,9 +44,11 @@ bool Install::install ()
     return ok;
   };
 
-  // mount, pacman_strap, fstab
-  // locale(timezone, locale.conf, keymap for vconsole), clock sync, 
-  // network conf, passwords, bootloader
+  // minimal: mount, pacman_strap, fstab, bootloader
+  //          required for bootable system, even if in < ideal state.
+
+  // locale(timezone, locale.conf, keymap for vconsole, clock sync)
+  // network conf
   
   bool minimal = false;
   try
@@ -57,13 +63,11 @@ bool Install::install ()
   }
   catch(const std::exception& e)
   {
-    qCritical() << e.what();
-    log(e.what());
+    log_critical(e.what());
   }
   catch (...)
   {
-    qCritical() << "Install::install() encountered an unknown exception";
-    log("Install::install() encountered an unknown exception");
+    log_critical("Install::install() encountered an unknown exception");
   }
 
   return minimal;
@@ -81,7 +85,7 @@ bool Install::do_mount(const std::string_view dev, const std::string_view path, 
   const int r = ::mount(dev.data(), path.data(), fs.data(), 0, nullptr) ;
   
   if (r != 0)
-    qCritical() << path << " : " << ::strerror(errno) << '\n';
+    log_critical(std::format("do_mount(): {} {}", path, ::strerror(errno)));
 
   qDebug() << "Leaving";
 
@@ -129,7 +133,7 @@ bool Install::pacman_strap()
 
   auto create_cmd_string = [](const PackageData& data)
   {
-    // pacstrap -K <root_partition> <package_list>
+    // pacstrap -K <root_mount> <package_list>
 
     std::stringstream cmd_string;
 
@@ -167,8 +171,7 @@ bool Install::pacman_strap()
   bool ok = true;
   if (pacstrap.execute() != CmdSuccess)
   {
-    qCritical() << "pacstrap failed";
-    log("ERROR: pacstrap failed - manual intervention required");
+    log_critical("ERROR: pacstrap failed - manual intervention required");
     ok = false;
   }
   else if (firmware_warning)
@@ -195,10 +198,7 @@ bool Install::fstab()
   const bool ok = fstab.execute() == CmdSuccess && fs::exists(FsTabPath) && fs::file_size(FsTabPath);
   
   if (!ok)
-  {
-    qCritical() << "fstab failed";
-    log("ERROR: fstab failed - manual intervention required");
-  }
+    log_critical("fstab failed");
   
   return ok;
 
@@ -249,8 +249,7 @@ bool Install::boot_loader()
 
   if (install.execute() != CmdSuccess)
   {
-    qCritical() << "ERROR: bootloader install failed";
-    log("ERROR: bootloader install failed");
+    log_critical("ERROR: bootloader install failed");
   }
   else
   {
@@ -263,8 +262,7 @@ bool Install::boot_loader()
 
     if (grub_init.execute() != CmdSuccess)
     {
-      qCritical() << "ERROR: GRUB initialise failed";
-      log("ERROR: GRUB initialise failed");
+      log_critical("ERROR: GRUB initialise failed");
     }
     else
     {
@@ -274,10 +272,7 @@ bool Install::boot_loader()
       }};
 
       if (grub_config.execute() != CmdSuccess)
-      {
-        qCritical() << "ERROR: GRUB config failed";
-        log("ERROR: GRUB config failed");
-      }        
+        log_critical("ERROR: GRUB config failed");
       else
         ok = true;
     }
@@ -286,4 +281,11 @@ bool Install::boot_loader()
   qDebug() << "Leave";
 
   return ok;
+}
+
+
+
+bool Install::localise()
+{
+  return false;
 }

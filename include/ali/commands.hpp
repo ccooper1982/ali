@@ -11,18 +11,21 @@
 inline const int CmdSuccess = 0;
 inline const int CmdFail = -1;
 
+using OutputHandler = std::function<void(const std::string_view)>;
 
 struct Command
 {
   Command ();
-  Command (std::function<void(const std::string_view)>&& on_output) ; // TODO what's the point of this?
+  // This constructor is used by PlatformSize. Don't like, redesign PlatformSize and bin this.
+  Command (OutputHandler&& on_output) ; 
   // If command has no output or output is irrelevant.
   Command (const std::string_view cmd) ;
   // Run command and receive each line in the supplied callback.
-  Command (const std::string_view cmd, std::function<void(const std::string_view)>&& on_output) ;
+  Command (const std::string_view cmd, OutputHandler&& on_output) ;
   
   int execute (const std::string_view cmd, const int max_lines = -1);
   int execute (const int max_lines = -1);
+  int execute (OutputHandler&& on_output, const int max_lines = -1);
   int execute_write(const std::string_view s);
   
   int get_result() const { return m_result; }
@@ -32,9 +35,9 @@ protected:
 
 private:
   std::string m_cmd;
-  std::function<void(const std::string_view)> m_handler;
+  OutputHandler m_handler;
   bool m_executed{false};
-  int m_result{0};
+  int m_result{CmdSuccess};
 };
 
 
@@ -116,6 +119,14 @@ struct TimezoneList : public Command
 
 private:
   std::vector<std::string>& m_zones;  
+};
+
+
+struct KeyMaps : public Command
+{
+  KeyMaps();
+
+  bool get_list(std::vector<std::string>& list);
 };
 
 

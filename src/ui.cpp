@@ -24,6 +24,40 @@ void log_handler(const QtMsgType type, const QMessageLogContext& ctx, const QStr
 }
 
 
+void configure_log_file(QWidget * parent)
+{
+  // attempt to open log file in /var/log/ali,
+  // if it fails (which it shouldn't on live ISO), but will
+  // fail on dev when not run as sudo, so attempt path './'
+  if (!fs::exists(InstallLogPath.parent_path()))
+    fs::create_directory(InstallLogPath.parent_path());
+  
+  if (log_file.open(QFile::WriteOnly | QFile::Truncate))
+  {
+    log_stream.setDevice(&log_file);
+  }
+  else
+  {
+    const fs::path alt_path{fs::current_path() / InstallLogPath.filename()};
+
+    std::string msg{"Cannot open preferred log file for writing:\n" + InstallLogPath.string() + '\n'};
+
+    if (log_file_alt.open(QFile::WriteOnly | QFile::Truncate))
+    {
+      msg += "Using alternative:\n" + alt_path.string() ;
+      log_stream.setDevice(&log_file_alt);
+    }
+    else
+      msg += "Alternative failed: " + alt_path.string();
+
+    QMessageBox::warning(parent, "Log", QString{msg.c_str()});
+  }
+  
+  // custom log handler and formatter, logging to file
+  qSetMessagePattern(log_format);
+  qInstallMessageHandler(log_handler);
+}
+
 
 bool check_commands_exist ()
 {
@@ -123,6 +157,7 @@ bool sync_system_clock()
   return cmd.execute() == CmdSuccess;
 }
 
+
 static std::tuple<bool, std::string> startup_checks()
 {
   // auto check = []<typename F, typename... Args>(F f, Args... args)  -> bool
@@ -195,10 +230,12 @@ public:
 
           m_current = next;
           m_current->show();
-          // need setFocus(), so the InstallWidget triggers a validation check
-          // can't do in the InstallWidget::InstallWidget() because it creates
-          // a recursive call stack 
-          m_current->setFocus(Qt::FocusReason::ActiveWindowFocusReason);
+
+          if (m_current->objectName() == Widgets::install()->get_nav_name())
+          {
+            // setFocus() so it triggers a validation check
+            m_current->setFocus(Qt::FocusReason::ActiveWindowFocusReason);
+          }
         }
       }
     });
@@ -226,19 +263,20 @@ private:
 
 int main (int argc, char ** argv)
 {
-  #ifdef ALI_PROD
-    std::cout << "Production Mode\n";
-  #elif defined(ALI_DEV)
-    std::cout << "Dev Mode\n";
-  #else
-    static_assert(false, "ALI_PROD or ALI_DEV must be defined");
+  #if !defined(ALI_PROD) && !defined(ALI_DEV)
+    static_assert(false, "ALI_PROD or ALI_DEV must be defined");  
   #endif
   
   QApplication app(argc, argv);
+  QMainWindow window;
+
+  // do this ASAP
+  configure_log_file(&window);
+
   
   if (QStyleFactory::keys().contains("Fusion"))
   {
-    // TODO maybe. May not be worth the effort for some colors, except
+    // TODO Styling may not be worth the effort for some colors, except
     //      for those who require high contrast
     //  https://stackoverflow.com/questions/48256772/dark-theme-for-qt-widgets
     //  https://github.com/Alexhuszagh/BreezeStyleSheets
@@ -259,7 +297,7 @@ int main (int argc, char ** argv)
   centre_widget->setContentsMargins(0,0,0,0);
   centre_widget->setLayout(centre_layout);
 
-  QMainWindow window;
+  
   window.setWindowTitle("ali");
   window.resize(800, 600);  // TODO may be unsuitable
   window.setCentralWidget(centre_widget);
@@ -268,40 +306,6 @@ int main (int argc, char ** argv)
   nav_tree->show_welcome();
 
   window.show();
-
-
-  // attempt to open log file in /var/log/ali,
-  // if it fails (which it shouldn't on live ISO), but will
-  // fail on dev when not run as sudo, so attempt path './'
-  if (!fs::exists(InstallLogPath.parent_path()))
-    fs::create_directory(InstallLogPath.parent_path());
-  
-  if (log_file.open(QFile::WriteOnly | QFile::Truncate))
-  {
-    log_stream.setDevice(&log_file);
-  }
-  else
-  {
-    const fs::path alt_path{fs::current_path() / InstallLogPath.filename()};
-
-    std::string msg{"Cannot open preferred log file for writing:\n" + InstallLogPath.string() + '\n'};
-
-    if (log_file_alt.open(QFile::WriteOnly | QFile::Truncate))
-    {
-      msg += "Using alternative:\n" + alt_path.string() ;
-      log_stream.setDevice(&log_file_alt);
-    }
-    else
-      msg += "Alternative failed: " + alt_path.string();
-
-    QMessageBox::warning(&window, "Log", QString{msg.c_str()});
-  }
-
-  
-  // custom log handler and formatter, logging to file
-  qSetMessagePattern(log_format);
-  qInstallMessageHandler(log_handler);
-
 
   // perform startup checks
   if (const auto [ok, err] = startup_checks(); !ok)

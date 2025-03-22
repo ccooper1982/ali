@@ -36,6 +36,7 @@ sources = [
     'src/widgets/accounts_widget.cpp',
     'src/widgets/packages_widget.cpp',
     'src/widgets/install_widget.cpp',
+    'src/widgets/start_widget.cpp',
     'src/widgets/widgets.cpp',    
     'src/ui.cpp'
     ]

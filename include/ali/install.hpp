@@ -29,12 +29,15 @@ private:
   void log_stage_start(const std::string_view msg);
   void log_stage_end(const std::string_view msg);
 
+  void log_critical(const std::string_view msg);
+
   bool do_mount(const std::string_view dev, const std::string_view path, const std::string_view fs);
   bool mount();    
   bool pacman_strap();
   bool fstab();
   bool passwords();
   bool boot_loader();
+  bool localise();
 
 private:
   //ProgressHandler m_progress;

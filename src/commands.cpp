@@ -19,11 +19,12 @@ Command::Command (const std::string_view cmd) :
 {
 }
 
-Command::Command (const std::string_view cmd, std::function<void(const std::string_view)>&& on_output) :
+Command::Command (const std::string_view cmd, OutputHandler&& on_output) :
   m_cmd(cmd),
   m_handler(std::move(on_output))
 {
 }
+
 
 int Command::execute (const std::string_view cmd, const int max_lines)
 {
@@ -71,6 +72,13 @@ int Command::execute (const std::string_view cmd, const int max_lines)
 
 int Command::execute (const int max_lines)
 {
+  return execute(m_cmd, max_lines);
+}
+
+
+int Command::execute (OutputHandler&& on_output, const int max_lines)
+{
+  m_handler = std::move(on_output);
   return execute(m_cmd, max_lines);
 }
 
@@ -184,6 +192,23 @@ void TimezoneList::get_zones()
 {
   if (m_zones.empty())
     execute();
+}
+
+
+// KeyMaps
+KeyMaps::KeyMaps() : Command("localectl list-keymaps")
+{
+
+}
+
+bool KeyMaps::get_list(std::vector<std::string>& list)
+{
+  const int res = execute([&list](const std::string_view m)
+  {
+    if (!m.empty())
+      list.emplace_back(m);
+  });
+  return res == CmdSuccess;
 }
 
 

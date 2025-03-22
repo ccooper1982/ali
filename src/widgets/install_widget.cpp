@@ -55,7 +55,7 @@ See Arch Guide to troubleshoot.
   
 ---
   
-  )!";
+)!";
 
 
 struct LogWidget : public QPlainTextEdit

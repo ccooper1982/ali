@@ -1,46 +1,27 @@
-#ifndef ALI_WELCOMEWIDGET_H
-#define ALI_WELCOMEWIDGET_H
+#ifndef ALI_STARTWIDGET_H
+#define ALI_STARTWIDGET_H
 
 #include <QLabel>
 #include <QVBoxLayout>
 #include <ali/widgets/content_widget.hpp>
 
 
-inline static const QString intro = R"!(
-# Arch Linux Install
-
----
-
-This tool follows the Arch guide, which contains everything required
-for install.
-
-No changes are made until the final step when 'Install' is pressed.
-
-)!";
-
-
-struct WelcomeWidget : public ContentWidget
+struct StartWidget : public ContentWidget
 {
-  WelcomeWidget() : ContentWidget("Start")
-  {
-    QLabel * label = new QLabel(intro);
-    label->setContentsMargins(0,0,0,10);
-    label->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
-    label->setWordWrap(true);
-    label->setTextFormat(Qt::TextFormat::MarkdownText);
-    
-    QVBoxLayout * layout = new QVBoxLayout;
-    layout->setContentsMargins(10,10,10,10);
-    layout->setAlignment(Qt::AlignLeft | Qt::AlignTop);
-    layout->addWidget(label);
+  StartWidget() ;
 
-    layout->addStretch(1);
-    setLayout(layout);
-  }
-
-  virtual ~WelcomeWidget() = default;
+  virtual ~StartWidget() = default;
 
   virtual bool is_valid() override { return true; }
+
+private:
+  bool keymaps();
+  bool language();
+
+private:
+  std::vector<std::string> m_keymaps;
+  QComboBox * m_combo_keymaps;
+  QComboBox * m_combo_country;
 };
 
 

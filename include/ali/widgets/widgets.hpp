@@ -2,7 +2,7 @@
 #define ALI_WIDGETS_H
 
 #include <ali/widgets/content_widget.hpp>
-#include <ali/widgets/welcome_widget.hpp>
+#include <ali/widgets/start_widget.hpp>
 #include <ali/widgets/partitions_widget.hpp>
 #include <ali/widgets/network_widget.hpp>
 #include <ali/widgets/accounts_widget.hpp>
@@ -25,9 +25,9 @@ struct Widgets
   
 
 public:
-  static WelcomeWidget * welcome()
+  static StartWidget * start()
   {
-    static auto * w = new WelcomeWidget;
+    static auto * w = new StartWidget;
     return w;
   }
 
@@ -65,7 +65,7 @@ public:
   {
     static const std::vector<ContentWidget*> widgets = 
     {
-      Widgets::welcome(),
+      Widgets::start(),
       Widgets::partitions(),
       Widgets::network(),
       Widgets::accounts(),
