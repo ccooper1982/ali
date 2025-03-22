@@ -26,9 +26,6 @@ endif
 blkid_dep = dependency('blkid', required: true)
 libmount_dep = dependency('mount', required: true)
 
-
-
-
 sources = [
     #'src/test.cpp',    
     #'src/console.cpp',
@@ -44,13 +41,14 @@ sources = [
     ]
 
 includes = include_directories('include')
+moc_includes = ['include/ali/install.hpp']
 
 qt6_dep = dependency('qt6', required: true, modules: ['Core', 'Gui', 'Widgets'])
 
 qt6 = import('qt6')
-moc_files = qt6.compile_moc(headers : 'include/ali/install.hpp',
-                            include_directories: includes,
-                            dependencies: qt6_dep)
+moc_files = qt6.compile_moc( headers : moc_includes,
+                                              include_directories: includes,
+                                              dependencies: qt6_dep)
 
 executable( meson.project_name(),
             sources,

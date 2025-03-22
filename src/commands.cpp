@@ -25,12 +25,6 @@ Command::Command (const std::string_view cmd, std::function<void(const std::stri
 {
 }
 
-// int Command::operator()()
-// {
-//   return execute();
-// }
-
-
 int Command::execute (const std::string_view cmd, const int max_lines)
 {
   m_executed = true;
@@ -38,7 +32,7 @@ int Command::execute (const std::string_view cmd, const int max_lines)
   if (cmd.empty())
     return CmdSuccess;
 
-  // redirect stderr to stdout (pacstrap, and perhaps others, output to stderr when mount point doesn't exist)
+  // redirect stderr to stdout (pacstrap, and perhaps others, can outpput errors to stderr)
   if (FILE * fd = ::popen(std::format("{} {}", cmd, "2>&1").data(), "r"); fd)
   {
     char buff[4096];
@@ -96,6 +90,7 @@ int Command::execute_write(const std::string_view s)
 }
 
 
+
 //
 CommandExist::CommandExist (const std::string_view program) :
   Command(std::format("command -v {}", program), std::bind_front(&CommandExist::on_output, std::ref(*this)))
@@ -108,16 +103,10 @@ bool CommandExist::exists()
   return get_result() == CmdSuccess;
 }
 
-// int CommandExist::operator()()
-// {
-//   return exists() ? CmdSuccess : CmdFail;
-// } 
-
 void CommandExist::on_output(const std::string_view line)
 {
   m_missing = line.empty() || line.size() == 1;
 }
-
 
 
 // TODO don't like this: get_size() returning int because it's same as also used
@@ -155,11 +144,6 @@ bool PlatformSize::platform_file_exist() const
   return m_exists;
 }
 
-// int PlatformSize::operator()()
-// {
-//   return get_size() ;
-// }
-
 
 //
 CpuVendor::CpuVendor() :
@@ -181,11 +165,6 @@ CpuVendor::Vendor CpuVendor::get_vendor ()
   return execute(1) == CmdSuccess ? m_vendor : Vendor::None;
 }
 
-// int CpuVendor::operator()()
-// {
-//   return get_vendor() == Vendor::None ? CmdFail : CmdSuccess;
-// }
-
 
 //
 TimezoneList::TimezoneList(std::vector<std::string>& zones) :
@@ -201,14 +180,15 @@ void TimezoneList::on_output(const std::string_view line)
     m_zones.emplace_back(line);
 }
 
-// int TimezoneList::operator()()
-// {
-//   get_zones();  
-//   return m_zones.empty() ? CmdFail : CmdSuccess;
-// }
-
 void TimezoneList::get_zones()
 {
   if (m_zones.empty())
     execute();
+}
+
+
+//
+SysClockSync::SysClockSync() : Command("timedatectl")
+{
+
 }

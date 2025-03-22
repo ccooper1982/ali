@@ -117,6 +117,12 @@ bool check_connection()
 }
 
 
+bool sync_system_clock()
+{
+  SysClockSync cmd;
+  return cmd.execute() == CmdSuccess;
+}
+
 static std::tuple<bool, std::string> startup_checks()
 {
   // auto check = []<typename F, typename... Args>(F f, Args... args)  -> bool
@@ -140,6 +146,8 @@ static std::tuple<bool, std::string> startup_checks()
     return fail("Platform size not found or not 64bit");
   else if (!check(check_connection))
     return fail("No active internet connection");
+  else if (!check(sync_system_clock))
+    return fail("Failed to call timedatectl or it failed");
   else
     return {true, ""};
 }
@@ -225,32 +233,6 @@ int main (int argc, char ** argv)
   #else
     static_assert(false, "ALI_PROD or ALI_DEV must be defined");
   #endif
-
-  // log_file.open(QFile::WriteOnly | QFile::Truncate);
-  // log_stream.setDevice(&log_file);
-
-  // qSetMessagePattern(log_format);
-  // qInstallMessageHandler(log_handler);
-
-  // bool firmware_warning = false;
-  // Command pacstrap {"pacstrap -K /asdasdas", [&firmware_warning](const std::string_view out)
-  // {    
-  //   qInfo() << out;
-    
-  //   if (out.find("Possibly missing firmware for module:") != std::string::npos)
-  //     firmware_warning = true;
-  // }};
-  
-  // bool ok = true;
-  // if (pacstrap.execute() != CmdSuccess)
-  // {
-  //   qCritical() << "pacstrap failed";
-  //   qInfo() << "ERROR: pacstrap failed - manual intervention required";
-  //   ok = false;
-  // }
-
-  // return 0;
-  
   
   QApplication app(argc, argv);
   

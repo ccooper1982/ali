@@ -19,15 +19,22 @@ public:
   bool install ();
 
 signals:
+  void on_stage_start(const QString msg);
   void on_log(const QString msg);
+  void on_stage_end(const QString msg);
+  void on_complete(const bool);
 
 private:
   void log(const std::string_view msg);
+  void log_stage_start(const std::string_view msg);
+  void log_stage_end(const std::string_view msg);
 
   bool do_mount(const std::string_view dev, const std::string_view path, const std::string_view fs);
-  bool mount();
-  
+  bool mount();    
   bool pacman_strap();
+  bool fstab();
+  bool passwords();
+  bool boot_loader();
 
 private:
   //ProgressHandler m_progress;

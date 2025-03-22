@@ -38,6 +38,8 @@ private:
 private:
   LogWidget * m_log_widget;
   QPushButton * m_btn_install{nullptr};
+  QLabel * m_lbl_waffle;
+  QLabel * m_lbl_busy;
   std::jthread m_install_thread;
   Install m_installer;
 };
