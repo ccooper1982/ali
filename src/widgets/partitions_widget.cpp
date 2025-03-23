@@ -28,7 +28,7 @@ struct SelectMounts : public QWidget
     m_root = new QComboBox;
     m_home = new QComboBox;
     m_home_to_root = new QCheckBox("Mount /home to root partition");
-    
+        
     m_root->setMaximumWidth(200);
     m_boot->setMaximumWidth(200);
     m_home->setMaximumWidth(200);
@@ -57,6 +57,10 @@ struct SelectMounts : public QWidget
       if (m_home_to_root->checkState() == Qt::Checked)
         m_home->setCurrentText(value);
     });
+
+
+    m_home_to_root->setChecked(true);
+    m_home_to_root->setEnabled(false);
   }
 
   void add_boot(const QString& dev)
