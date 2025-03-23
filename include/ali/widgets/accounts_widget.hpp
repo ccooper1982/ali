@@ -16,6 +16,7 @@ private:
   QLineEdit * m_root_pass;
   QLineEdit * m_user_username;
   QLineEdit * m_user_pass;
+  QCheckBox * m_user_sudo;
 };
 
 

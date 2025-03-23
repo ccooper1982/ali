@@ -10,21 +10,22 @@ AccountsWidget::AccountsWidget() : ContentWidget("Accounts")
 {
   QVBoxLayout * layout = new QVBoxLayout;
   layout->setAlignment(Qt::AlignTop);
-  layout->setSpacing(50);
-  
+    
   {
     QFormLayout * root_layout = new QFormLayout;
+    QGroupBox * root_group = new QGroupBox{"Root"};
+
     m_root_pass = new QLineEdit("arch");
     m_root_pass->setMaximumWidth(150);
     root_layout->addRow("Root Password", m_root_pass);
-
-    QGroupBox * root_group = new QGroupBox{"Root"};
+    
     root_group->setLayout(root_layout);
     layout->addWidget(root_group);
   }
-
+  
   {
     QFormLayout * user_layout = new QFormLayout;
+    QGroupBox * user_group = new QGroupBox{"User"};
 
     m_user_username = new QLineEdit;
     m_user_username->setMaximumWidth(150);
@@ -32,14 +33,18 @@ AccountsWidget::AccountsWidget() : ContentWidget("Accounts")
     m_user_pass = new QLineEdit;
     m_user_pass->setMaximumWidth(150);
 
+    m_user_sudo = new QCheckBox("Add the user to sudoers");
+    m_user_sudo->setChecked(true);
+
     user_layout->addRow("Username", m_user_username);
     user_layout->addRow("Password", m_user_pass);
-
-    QGroupBox * user_group = new QGroupBox{"User"};
+    user_layout->addRow("Permit sudo", m_user_sudo);
+    
     user_group->setLayout(user_layout);
     layout->addWidget(user_group);
   }
 
+  layout->addStretch();
   setLayout(layout);
 }
 
