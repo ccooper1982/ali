@@ -27,8 +27,6 @@ blkid_dep = dependency('blkid', required: true)
 libmount_dep = dependency('mount', required: true)
 
 sources = [
-    #'src/test.cpp',    
-    #'src/console.cpp',
     'src/install.cpp',
     'src/commands.cpp',
     'src/utils.cpp',

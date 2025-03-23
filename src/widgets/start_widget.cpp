@@ -74,5 +74,5 @@ bool StartWidget::keymaps()
 
 bool StartWidget::language()
 {
-  
+  return false; 
 }

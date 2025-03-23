@@ -8,6 +8,10 @@
 #include <ali/commands.hpp>
 
 
+/*
+
+Unused, replaced with UI. Remove when install operations have been added to install.cpp
+
 struct Menu
 {
   virtual void show () = 0;
@@ -529,3 +533,4 @@ void Console::show ()
   MainMenu menu;
   menu.show();
 }
+*/

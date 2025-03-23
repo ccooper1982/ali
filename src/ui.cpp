@@ -106,12 +106,12 @@ bool check_platform_size ()
 
 bool get_keymap (std::vector<std::string>& keys)
 {
-  Command cmd{"localectl list-keymaps", [&keys](std::string_view line)
-  {
-    keys.emplace_back(line);
-  }};
+  // NOTE: this command is ran by the StartWidget, can probably remove it from here
+  std::vector<std::string> list;
 
-  return cmd.execute() == CmdSuccess;
+  KeyMaps cmd;
+  cmd.get_list(list);
+  return !list.empty();
 }
 
 
