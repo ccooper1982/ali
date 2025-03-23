@@ -13,16 +13,17 @@ TODO screenshot
 There are limitations which will be addressed:
 
 - It yet doesn't manage partitions or create filesystems, so you must do this manually with `fdisk` or `cfdisk` prior to running `ali`
-- Options are limited
-  - Boot: only tested with a GPT partition table
-  - Bootloader: only GRUB
-  - Accounts: only sets password for root, does not add user account yet
-  - Packages: only required and kernel (and only `linux`), no additional packages yet
-- Tested with English language and `uk` keyboard
+- Install process assumes `/` is `ext4`
+- Only tested with a GPT partition table
+- Bootloader: only GRUB
+- Accounts: only sets password for root
+- Packages: only required packages installed, and kernel is only `linux` - no additional packages yet
+- Tested only with English language and `uk`/`us` keyboard
 - Tested only within a VM
 
 Some UI options are ignored:
 - Does not mount `/home`
+- User account name/password ignored (user not added)
 
 ## Usage
 TODO
