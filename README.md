@@ -1,10 +1,10 @@
 # Arch Linux Installer
 `ali` is an installer for [Arch Linux](https://archlinux.org/), offering a Qt6 UI as an alternative to the existing [archinstall](https://wiki.archlinux.org/title/Archinstall).
 
+![start_screen_small](https://github.com/user-attachments/assets/442793c1-7874-49ef-8b44-964fcbbd0643)
+
 > [!WARNING]
 > This is early beta, not ready for public use.
-
-TODO screenshot
 
 ## Features
 - `/boot` must be EFI (FAT32) 
