@@ -167,10 +167,7 @@ private:
 };
 
 
-std::vector<Partition> read_disk(const std::string_view dev);
-PartitionStatus check_partition_status(const std::string_view part);
-std::vector<std::string> get_installable_devices();
-DiskTree create_disk_tree (); // TODO remove
+//PartitionStatus check_partition_status(const std::string_view part);
 Partitions get_partitions();
 
 bool is_dir_mounted(const std::string_view path);

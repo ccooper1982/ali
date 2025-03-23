@@ -1,6 +1,7 @@
 #include <ali/util.hpp>
 #include <string.h>
 #include <cstring>
+#include <QDebug>
 #include <libmount/libmount.h>
 
 static const std::string EfiPartitionType {"c12a7328-f81f-11d2-ba4b-00a0c93ec93b"};
@@ -35,13 +36,13 @@ struct Probe
     return pr != nullptr;
   }
 
-  blkid_probe pr;
+  blkid_probe pr{nullptr};
 };
 
 
 static std::tuple<PartitionStatus, Partition> read_partition(const std::string_view part_dev)
 {
-  std::cout << __FUNCTION__ << " - " << part_dev << '\n';
+  qDebug() << "Enter: " << part_dev;
 
   auto make_error = []{ return std::make_pair(PartitionStatus::Error, Partition{}); };
 
@@ -58,7 +59,7 @@ static std::tuple<PartitionStatus, Partition> read_partition(const std::string_v
   // full probe required for PART_ENTRY values
   if (const int r = blkid_do_fullprobe(pr) ; r == BLKID_PROBE_ERROR)
   {
-    std::cout << "ERROR: fullprobe failed: " << strerror(r) << '\n';
+    qCritical() << "fullprobe failed: " << strerror(r);
     return make_error();
   }
   else
@@ -84,13 +85,13 @@ static std::tuple<PartitionStatus, Partition> read_partition(const std::string_v
         blkid_probe_lookup_value(pr, "VERSION", &vfat_version, nullptr);
         if (isfat32 = (strcmp(vfat_version, "FAT32") == 0) ; !isfat32)
         {
-          std::cout << "ERROR: vfat is not version FAT32\n";
+          qCritical() << "vfat is not version FAT32";
           status = PartitionStatus::Error;
         }
       }
       else
       {
-        std::cout << "ERROR: could not get vfat version\n";
+        qCritical() << "could not get vfat version";
         status = PartitionStatus::Error;
       }
     }
@@ -110,16 +111,37 @@ static std::tuple<PartitionStatus, Partition> read_partition(const std::string_v
 }
 
 
+static bool is_mounted(const std::string_view path_or_dev, const bool is_dev)
+{
+  bool mounted = false;
+
+  if (auto table = mnt_new_table(); table)
+  {
+    if (mnt_table_parse_mtab(table, nullptr) == 0)
+    {
+      if (is_dev)
+        mounted = nullptr != mnt_table_find_source(table, path_or_dev.data(), MNT_ITER_FORWARD);
+      else
+        mounted = nullptr != mnt_table_find_target(table, path_or_dev.data(), MNT_ITER_FORWARD);
+    }
+
+    mnt_free_table(table);
+  }
+
+  return mounted;
+}
+
+
 Partitions get_partitions()
 {
   Partitions parts;
 
   if (blkid_cache cache; blkid_get_cache(&cache, nullptr) != 0)
-    std::cout << "ERROR: could not create blkid cache\n";
+    qCritical() << "could not create blkid cache";
   else
   {
     if (blkid_probe_all(cache) != 0)
-      std::cout << "ERROR: blkid cache probe failed\n";
+      qCritical() << "blkid cache probe failed";
     else
     {
       const auto dev_it = blkid_dev_iterate_begin (cache);
@@ -142,59 +164,6 @@ Partitions get_partitions()
   });
 
   return parts;
-}
-
-
-PartitionStatus check_partition_status(const std::string_view part_dev)
-{
-  std::cout << __FUNCTION__ << " - for " << part_dev << '\n';
-
-  PartitionStatus status{PartitionStatus::Error};
-
-  blkid_probe pr = blkid_new_probe_from_filename(part_dev.data());
-	if (!pr)
-  {
-    std::cout << "Failed to create a new probe for: " << part_dev << '\n';
-  }
-  else
-  {
-    if (blkid_probe_enable_partitions(pr, 1) != BLKID_PROBE_OK)
-    {
-      std::cout << "ERROR: failed to enable partitions on probe\n";
-      status = PartitionStatus::Error;
-    }
-    else if (blkid_probe_is_wholedisk(pr))
-      status = PartitionStatus::NotPartition;
-    else
-    {
-
-    }
-
-    blkid_free_probe(pr);
-  }
-
-  return status;
-}
-
-
-static bool is_mounted(const std::string_view path_or_dev, const bool is_dev)
-{
-  bool mounted = false;
-
-  if (auto table = mnt_new_table(); table)
-  {
-    if (mnt_table_parse_mtab(table, nullptr) == 0)
-    {
-      if (is_dev)
-        mounted = nullptr != mnt_table_find_source(table, path_or_dev.data(), MNT_ITER_FORWARD);
-      else
-        mounted = nullptr != mnt_table_find_target(table, path_or_dev.data(), MNT_ITER_FORWARD);
-    }
-
-    mnt_free_table(table);
-  }
-
-  return mounted;
 }
 
 
