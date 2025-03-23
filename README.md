@@ -12,7 +12,7 @@ TODO screenshot
 ## Limitations
 There are limitations which will be addressed:
 
-- Does not manage partitions or create filesystems, so you must do this manually with `fdisk` or `cfdisk` prior to running `ali`
+- Does not manage partitions or create filesystems. You must do this manually with `fdisk` or `cfdisk` prior to running `ali`
 - Install process assumes `/` is `ext4`
 - Only tested with a GPT partition table
 - Bootloader: only GRUB
@@ -34,18 +34,18 @@ Some UI options are ignored:
 ## Design
 - Qt6 for the UI
 - Partitions, filesystems and mounting: `libblkid` and `libmount`
-- Everything else: pipe to command (`popen()`) or parsing files (i.e. `/etc/locales.gen`)
+- Everything else: open pipe (`popen()`) or parsing files (i.e. `/etc/locales.gen`)
 
 
 ## Usage
 - There is a custom ISO, created with [archiso](https://wiki.archlinux.org/title/Archiso)
 - Run the ISO in Virtual Box
 - The display server is not started on boot, this is to allow creating partitions/filesystem
-- Run `startx` to start the display server
-- Uses `openbox` window manager and to run ali
-- During install, there is minimal log entries in the UI, so during `pacstrap` and `pacman` shows no work, but they are running
-- Right-click on the desktop then select "Log Out" to return to the terminal (all other options do nothing, and will be removed)
-- Log file in `/var/log/ali/install.log` with full logs
+- Run `startx`
+- An `openbox` session is started
+- The UI has a log view. It is separate from the main log, displaying minimal information. So some operations appear dead (i.e. `pacstrap` and `pacman`), but they are running
+- You can right-click on the desktop, then select "Log Out" to return to the terminal (all other options do nothing, and will be removed)
+- Full log file: `/var/log/ali/install.log`
 
 
 ## Development
@@ -57,9 +57,11 @@ Keep it simple, avoid offering a million options, but do add:
   - Desktop: Not an exhaustive selection
   - Server: Only if significantly different from minimal (i.e. not just minimal + packages + config)
 - Configs:
-  - Save config to file
-  - Open with config:
-    - Populating fields
-    - Auto install
+  - Save install config to file
+  - Open install config, to either:
+    - Start UI, populate fields but don't install
+    - No UI, check mounts are valid then installs without prompt
   
   
+## Build
+TODO
