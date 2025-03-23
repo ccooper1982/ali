@@ -231,7 +231,7 @@ public:
           m_current = next;
           m_current->show();
 
-          if (m_current->objectName() == Widgets::install()->get_nav_name())
+          if (m_current->get_nav_name() == Widgets::install()->get_nav_name())
           {
             // setFocus() so it triggers a validation check
             m_current->setFocus(Qt::FocusReason::ActiveWindowFocusReason);
@@ -254,7 +254,7 @@ public:
 
 private:
   QLayout * m_centre_layout;
-  QWidget * m_current{nullptr};
+  ContentWidget * m_current{nullptr};
   QStandardItemModel * m_model;
   QModelIndex m_welcome_index;
 };
