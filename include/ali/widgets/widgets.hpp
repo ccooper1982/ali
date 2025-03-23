@@ -16,15 +16,12 @@
 // These is this because the InstallWidget requires 
 // access to each widget to request their data.
 // 
-// - This can't be a templated function because
-//   we only want one instance of each widget. 
+// - This can't be a factory style templated function because
+//   we only want one instance of each widget
 // - A QWidget cannot be created prior to instanciating
-//   QApplication.
+//   QApplication
 struct Widgets
 {
-  
-
-public:
   static StartWidget * start()
   {
     static auto * w = new StartWidget;
@@ -71,14 +68,11 @@ public:
       Widgets::accounts(),
       Widgets::packages(),
       Widgets::install()
-      // Locales, Bootloader, Profile, Audio, Video
+      // Profile, Audio, Video
     };
 
     return widgets;
   }
-
-private:
-  
 };
 
 #endif
