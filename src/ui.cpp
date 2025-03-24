@@ -239,6 +239,18 @@ public:
         }
       }
     });
+
+
+    connect(Widgets::install(), &InstallWidget::on_install_begin, this, [this]
+    {
+      this->setEnabled(false);
+    });
+
+    
+    connect(Widgets::install(), &InstallWidget::on_install_end, this, [this]
+    {
+      this->setEnabled(true);
+    });
   }
 
   ~NavTree()

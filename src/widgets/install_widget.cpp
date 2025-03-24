@@ -35,16 +35,12 @@ Full details:
 - `/var/log/ali/install.log`
  
 If the error is produced during any of:
-- mount
-- pacstrap
-- fstab
-- arch-choot
-- bootloader
+- mount, pacstrap, fstab, arch-choot, bootloader
 
 Rebooting to the installed system will likely fail, otherwise
 it is usually safe to reboot to the installed system. 
 
-To fix the issue in the __live ISO__, you can return to the terminal.
+To fix the issue in the **live ISO**, you can return to the terminal.
 
 In the terminal, only chroot if the "arch-chroot" step succeeded
 during install (see log below):
@@ -135,6 +131,8 @@ InstallWidget::InstallWidget() : ContentWidget("Install")
       m_btn_install->setText("Install");
       m_lbl_waffle->setText(waffle_postinstall_fail);
     }
+
+    emit on_install_end();
   });
 
   #ifdef ALI_PROD
@@ -193,10 +191,14 @@ void InstallWidget::install()
     m_btn_install->setText("Installing ...");
     m_btn_install->setEnabled(false);
     
+    emit on_install_begin();
+
     m_install_thread = std::move(std::jthread([this](){ m_installer.install(); }));
   }
   catch(const std::exception& e)
   {
+    emit on_install_end();
+
     m_log_widget->appendPlainText(QString::fromStdString(std::format("ERROR: exception: {}", e.what())));
     qCritical() << e.what();
   }

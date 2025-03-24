@@ -40,7 +40,11 @@ sources = [
     ]
 
 includes = include_directories('include')
-moc_includes = ['include/ali/install.hpp']
+
+moc_includes = ['include/ali/install.hpp',
+                          'include/ali/widgets/install_widget.hpp'
+                         ]
+
 
 qt6_dep = dependency('qt6', required: true, modules: ['Core', 'Gui', 'Widgets'])
 

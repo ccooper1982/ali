@@ -12,9 +12,16 @@ struct LogWidget;
 
 struct InstallWidget : public ContentWidget
 {
+  Q_OBJECT 
+
+public:
   InstallWidget() ;
 
   virtual ~InstallWidget();
+
+signals:
+  void on_install_begin();
+  void on_install_end();
 
 protected:
   virtual void focusInEvent(QFocusEvent *event) override;
