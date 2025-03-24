@@ -32,6 +32,7 @@ void Install::log_critical(const std::string_view msg)
   log(msg);
 }
 
+
 bool Install::install ()
 {
   auto exec_stage = [this](std::function<bool(Install&)> f, const std::string_view stage) mutable
@@ -211,25 +212,37 @@ bool Install::passwords()
 {
   qDebug() << "Enter";
 
-  std::string root_passwd = "arch"; // TODO
-  
-  ChRootCmd cmd_passwd{"passwd --stdin"};
-  cmd_passwd.execute_write(root_passwd);
+  const std::string root_passwd = Widgets::accounts()->root_password();
 
-  bool pass_set{false};
-  ChRootCmd cmd_check{"passwd -S", [&pass_set](const std::string_view out)
+  // sanity check: UI should prevent this
+  if (root_passwd.empty())
   {
-    if (out.size() > 6) // at least "root P"
-    {
-      if (const auto pos = out.find(' '); pos != std::string_view::npos)
-        pass_set = out.substr(pos+1, 1) == "P";
-    }
-  }};
-  cmd_check.execute();
+    log_critical("Root password empty");
+    return false;
+  }
 
+  bool pass_set{false}, pass_valid{false};
+
+  ChRootCmd cmd_passwd{"passwd --stdin"};
+  if (cmd_passwd.execute_write(root_passwd) == CmdSuccess)
+  {
+    pass_set = true;
+
+    ChRootCmd cmd_check{"passwd -S", [&pass_valid](const std::string_view out)
+    {
+      if (out.size() > 6) // at least "root P"
+      {
+        if (const auto pos = out.find(' '); pos != std::string_view::npos)
+          pass_valid = out.substr(pos+1, 1) == "P";
+      }
+    }};
+
+    cmd_check.execute(); // if this fails, pass_valid remains false
+  }
+  
   qDebug() << "Leave";
 
-  return pass_set;
+  return pass_set && pass_valid;
 }
 
 
@@ -240,7 +253,7 @@ bool Install::boot_loader()
 
   bool ok = false;
 
-  // TODO (grub, efibootmgr) or (systemd)
+  // TODO: systemd
 
   ChRootCmd install {"pacman -Sy --noconfirm grub efibootmgr", [](const std::string_view out)
   {
@@ -282,7 +295,6 @@ bool Install::boot_loader()
 
   return ok;
 }
-
 
 
 bool Install::localise()

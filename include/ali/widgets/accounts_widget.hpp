@@ -12,6 +12,11 @@ struct AccountsWidget : public ContentWidget
 
   virtual bool is_valid() override;
 
+  std::string root_password() const
+  {
+    return m_root_pass->text().toStdString();
+  }
+
 private:
   QLineEdit * m_root_pass;
   QLineEdit * m_user_username;
