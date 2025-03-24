@@ -95,15 +95,10 @@ InstallWidget::InstallWidget() : ContentWidget("Install")
   m_lbl_busy->setAutoFillBackground(true);
   m_lbl_busy->setStyleSheet("QLabel { background-color: green; }");
   
-  install_icon_layout->addStretch();
   install_icon_layout->addWidget(m_btn_install, 0, Qt::AlignHCenter);
-  // doesn't look right, scrap for now
-  //install_icon_layout->addWidget(m_lbl_busy, 0, Qt::AlignHCenter);
-  install_icon_layout->addStretch();
-  //install_icon_layout->setSizeConstraint(QLayout::SizeConstraint::SetMaximumSize);
 
   m_log_widget = new LogWidget;
-  m_log_widget->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
+  m_log_widget->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Maximum);
   
   layout->addWidget(m_lbl_waffle);
   layout->addLayout(install_icon_layout);

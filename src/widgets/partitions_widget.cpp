@@ -82,10 +82,12 @@ struct SelectMounts : public QWidget
   {
     return m_root->itemText(m_root->currentIndex());
   }
+
   QString get_boot () const
   {
     return m_boot->itemText(m_boot->currentIndex());
   }
+
   QString get_home () const
   {
       return m_home->itemText(m_home->currentIndex());
@@ -122,17 +124,12 @@ PartitionsWidget::PartitionsWidget() : ContentWidget("Mounts")
   
   layout->setAlignment(Qt::AlignTop);
   layout->addWidget(new QLabel("Partitions"));
-
-  const Partitions partitions = get_partitions();
-
-  if (partitions.empty())
-  {
-    qCritical() << "No partitions found";
-  }
+  
 
   m_mounts_widget = new SelectMounts;
+  m_partitions = get_partitions();
 
-  auto table = new QTableWidget(partitions.size(), 4);
+  auto table = new QTableWidget(m_partitions.size(), 4);
   table->verticalHeader()->hide();
   table->setSelectionMode(QAbstractItemView::SelectionMode::SingleSelection);
   table->setSelectionBehavior(QAbstractItemView::SelectionBehavior::SelectRows);
@@ -146,13 +143,18 @@ PartitionsWidget::PartitionsWidget() : ContentWidget("Mounts")
   table->setHorizontalHeaderItem(COL_SIZE,  new QTableWidgetItem("Size"));
   
 
+  if (m_partitions.empty())
+  {
+    qCritical() << "No partitions found";
+  }
+
   int row = 0;
-  for(const auto& part : partitions)
+  for(const auto& part : m_partitions)
   {
     const auto path = QString::fromStdString(part.path);
 
     auto item_dev = new QTableWidgetItem(path);
-    auto item_type = new QTableWidgetItem(QString::fromStdString(part.type));
+    auto item_type = new QTableWidgetItem(QString::fromStdString(part.is_fat32 ? "vfat (FAT32)" : part.type));
     auto item_efi = new QTableWidgetItem(QString::fromStdString(part.is_efi ? "True" : "False"));
     auto item_size = new QTableWidgetItem(QString::fromStdString(format_size(part.size)));
     
@@ -193,9 +195,38 @@ bool PartitionsWidget::is_valid()
 }
 
 
-PartitionData PartitionsWidget::get_data()
+std::pair<bool, PartitionData> PartitionsWidget::get_data()
 {
-  return PartitionData {.root = m_mounts_widget->get_root().toStdString(),
-                        .boot = m_mounts_widget->get_boot().toStdString(),
-                        .home = m_mounts_widget->get_home().toStdString()};
+  const auto root_part = m_mounts_widget->get_root().toStdString();
+  const auto boot_part = m_mounts_widget->get_boot().toStdString();
+  const auto home_part = m_mounts_widget->get_home().toStdString();
+
+  const auto[have_root, root_fs] = get_fs_from_path(root_part);
+  const auto[have_boot, boot_fs] = get_fs_from_path(boot_part);
+  const auto[have_home, home_fs] = get_fs_from_path(home_part);
+  
+  if (have_root && have_boot && have_home)
+  {
+    return {true, PartitionData {
+                                  .root = {.path = root_part, .fs = root_fs},
+                                  .boot = {.path = boot_part, .fs = boot_fs},
+                                  .home = {.path = home_part, .fs = home_fs}
+                                }};
+  }
+  else
+    return {false, {}};
+}
+
+
+std::pair<bool, std::string> PartitionsWidget::get_fs_from_path(const std::string& path)
+{
+  const auto it = std::find_if(std::cbegin(m_partitions), std::cend(m_partitions), [&path](const Partition& part)
+  {
+    return part.path == path;
+  });
+
+  if (it == std::cend(m_partitions))
+    return {false, ""};
+  else
+    return {true, it->type};
 }

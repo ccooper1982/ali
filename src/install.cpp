@@ -98,28 +98,35 @@ bool Install::mount()
 {
   qDebug() << "Enter";
 
-  const PartitionData parts_data = Widgets::partitions()->get_data();
-  
-  if (is_dir_mounted(BootMnt.string()))
+  bool mounted_root{false}, mounted_boot{false};
+
+  const auto [valid, parts_data] = Widgets::partitions()->get_data();
+
+  if (!valid)
+    log_critical("Could not get the partitions paths and filesystem");
+  else
   {
-    log(std::format("{} is already mounted, unmounting", BootMnt.c_str()));
-    ::umount(BootMnt.c_str());
+    if (is_dir_mounted(BootMnt.string()))
+    {
+      log(std::format("{} is already mounted, unmounting", BootMnt.c_str()));
+      ::umount(BootMnt.c_str());
+    }
+
+    if (is_dir_mounted(RootMnt.string()))
+    {
+      log(std::format("{} is already mounted, unmounting", RootMnt.c_str()));
+      ::umount(RootMnt.c_str());
+    }
+
+    mounted_root = do_mount(parts_data.root.path, RootMnt.c_str(), parts_data.root.fs);  // TODO: get fs from widget
+    mounted_boot = do_mount(parts_data.boot.path, BootMnt.c_str(), parts_data.boot.fs);
+    
+    if (mounted_root)
+      log(std::format("Mounted {} -> {}", RootMnt.c_str(), parts_data.root.path));
+
+    if (mounted_boot)
+      log(std::format("Mounted {} -> {}", BootMnt.c_str(), parts_data.boot.path));
   }
-
-  if (is_dir_mounted(RootMnt.string()))
-  {
-    log(std::format("{} is already mounted, unmounting", RootMnt.c_str()));
-    ::umount(RootMnt.c_str());
-  }
-
-  const bool mounted_root = do_mount(parts_data.root, RootMnt.c_str(), "ext4");  // TODO: get fs from widget
-  const bool mounted_boot = do_mount(parts_data.boot, BootMnt.c_str(), "vfat");
-  
-  if (mounted_root)
-    log(std::format("Mounted {} -> {}", RootMnt.c_str(), parts_data.root));
-
-  if (mounted_boot)
-    log(std::format("Mounted {} -> {}", BootMnt.c_str(), parts_data.boot));
 
   qDebug() << "Leave";
 

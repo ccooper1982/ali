@@ -268,7 +268,15 @@ int main (int argc, char ** argv)
   #endif
   
   QApplication app(argc, argv);
+
   QMainWindow window;
+  window.setWindowTitle("ali");
+  window.setFixedSize(800,600); // TODO may be unsuitable
+  window.setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+  //window.setWindowFlags(Qt::Window | Qt::WindowTitleHint | Qt::CustomizeWindowHint);
+  window.setWindowFlags(Qt::Dialog);
+  
+
 
   // do this ASAP
   configure_log_file(&window);
@@ -296,15 +304,12 @@ int main (int argc, char ** argv)
   QWidget * centre_widget = new QWidget;
   centre_widget->setContentsMargins(0,0,0,0);
   centre_widget->setLayout(centre_layout);
-
   
-  window.setWindowTitle("ali");
-  window.resize(800, 600);  // TODO may be unsuitable
-  window.setCentralWidget(centre_widget);
-
+  
   // always show Welcome initially
   nav_tree->show_welcome();
 
+  window.setCentralWidget(centre_widget);
   window.show();
 
   // perform startup checks
