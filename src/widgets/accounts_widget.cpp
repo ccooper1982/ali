@@ -51,6 +51,11 @@ AccountsWidget::AccountsWidget() : ContentWidget("Accounts")
 
 bool AccountsWidget::is_valid()
 {
-  // NOTE: don't force a non-privileged account
-  return !m_root_pass->text().isEmpty();
+  //don't force a user account
+  const bool root_pass = !m_root_pass->text().isEmpty();
+  const bool user_name = !m_user_username->text().isEmpty();
+  const bool user_pass = !m_user_pass->text().isEmpty();
+
+  // root_pass is set AND username is set if it's not empty
+  return root_pass && ((user_name && user_pass) || (!user_name));
 }
