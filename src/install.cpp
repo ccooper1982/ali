@@ -40,11 +40,11 @@ bool Install::install ()
 {
   auto exec_stage = [this](std::function<bool(Install&)> f, const std::string_view stage) mutable
   {
-    log_stage_start(std::format("Stage: {} - Start", stage));
+    log_stage_start(std::format("{} - Start", stage));
     
     const bool ok = f(std::ref(*this));
 
-    log_stage_end(std::format("Stage: {} - {}", stage, ok ? "Success" : "Fail"));
+    log_stage_end(std::format("{} - {}", stage, ok ? "Success" : "Fail"));
     return ok;
   };
 
@@ -57,7 +57,9 @@ bool Install::install ()
   bool minimal = false;
   try
   {
-    minimal = exec_stage(&Install::mount, "mount") &&
+    // minimal = exec_stage(&Install::filesystems, "filesystems");
+    minimal = exec_stage(&Install::filesystems, "filesystems") &&
+              exec_stage(&Install::mount, "mount") &&
               exec_stage(&Install::pacman_strap, "pacstrap") &&
               exec_stage(&Install::fstab, "fstab") &&
               exec_stage(&Install::root_account, "root account") &&
@@ -79,32 +81,75 @@ bool Install::install ()
 }
 
 
-// mounting
-bool Install::do_mount(const std::string_view dev, const std::string_view path, const std::string_view fs)
+// filesystems
+bool Install::filesystems()
 {
-  qDebug() << "Enter";
+  const auto [valid, mounts] = Widgets::partitions()->get_data();
 
-  if (!fs::exists(path))
-    fs::create_directory(path);
+  // sanity: UI should prevent this
+  if (!valid)
+  {
+    qCritical("Mounts are invalid");
+    return false;
+  }
 
-  const int r = ::mount(dev.data(), path.data(), fs.data(), 0, nullptr) ;
-  
-  if (r != 0)
-    log_critical(std::format("do_mount(): {} {}", path, ::strerror(errno)));
+  if (mounts.root.create_fs)
+  {
+    if (!create_filesystem(mounts.root.dev, mounts.root.fs))
+      return false;
+  }
 
-  qDebug() << "Leaving";
+  if (mounts.boot.create_fs)
+  {
+    if (!create_filesystem(mounts.boot.dev, mounts.boot.fs))
+      return false;
+  }
 
-  return r == 0;    
+  return true;
 }
 
 
+bool Install::create_filesystem(const std::string_view dev, const std::string_view fs)
+{
+  qDebug() << "Enter";
+
+  log(std::format("Creating {} on {}", fs, dev));
+
+  bool created{true};
+  int res{0};
+
+  if (fs == "ext4")
+  {
+    CreateExt4 cmd{dev};
+    
+    if (res = cmd.execute() ; res != CmdSuccess)
+      created = false;
+  }
+  else if (fs == "vfat")
+  {
+    CreateFat32 cmd{dev};
+    
+    if (res = cmd.execute() ; res != CmdSuccess)
+      created = false;
+  }
+
+  if (!created)
+    qCritical() << "Failed to create filesystem: " << strerror(res);
+
+  qDebug() << "Leave";
+
+  return created;
+}
+
+
+// mounting
 bool Install::mount()
 {
   qDebug() << "Enter";
 
   bool mounted_root{false}, mounted_boot{false};
 
-  const auto [valid, parts_data] = Widgets::partitions()->get_data();
+  const auto [valid, mount_data] = Widgets::partitions()->get_data();
 
   if (!valid)
     log_critical("Could not get the partitions paths and filesystem");
@@ -122,19 +167,37 @@ bool Install::mount()
       ::umount(RootMnt.c_str());
     }
 
-    mounted_root = do_mount(parts_data.root.path, RootMnt.c_str(), parts_data.root.fs);  // TODO: get fs from widget
-    mounted_boot = do_mount(parts_data.boot.path, BootMnt.c_str(), parts_data.boot.fs);
+    mounted_root = do_mount(mount_data.root.dev, RootMnt.c_str(), mount_data.root.fs);  // TODO: get fs from widget
+    mounted_boot = do_mount(mount_data.boot.dev, BootMnt.c_str(), mount_data.boot.fs);
     
     if (mounted_root)
-      log(std::format("Mounted {} -> {}", RootMnt.c_str(), parts_data.root.path));
+      log(std::format("Mounted {} -> {}", RootMnt.c_str(), mount_data.root.dev));
 
     if (mounted_boot)
-      log(std::format("Mounted {} -> {}", BootMnt.c_str(), parts_data.boot.path));
+      log(std::format("Mounted {} -> {}", BootMnt.c_str(), mount_data.boot.dev));
   }
 
   qDebug() << "Leave";
 
   return mounted_root && mounted_boot;
+}
+
+
+bool Install::do_mount(const std::string_view dev, const std::string_view path, const std::string_view fs)
+{
+  qDebug() << "Enter";
+
+  if (!fs::exists(path))
+    fs::create_directory(path);
+
+  const int r = ::mount(dev.data(), path.data(), fs.data(), 0, nullptr) ;
+  
+  if (r != 0)
+    log_critical(std::format("do_mount(): {} {}", path, ::strerror(errno)));
+
+  qDebug() << "Leaving";
+
+  return r == 0;    
 }
 
 

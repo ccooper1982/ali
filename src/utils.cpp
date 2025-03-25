@@ -3,6 +3,7 @@
 #include <cstring>
 #include <sys/mount.h>
 #include <libmount/libmount.h>
+#include <libudev.h>
 #include <QDebug>
 
 
@@ -24,7 +25,7 @@ struct Probe
       blkid_probe_set_superblocks_flags(pr, super_block_flags);
     }
     else
-      std::cout << "probe on " << dev << " failed: " << strerror(errno) << '\n';
+      qCritical() << "probe on " << dev << " failed: " << strerror(errno) << '\n';
   }
 
   ~Probe()
@@ -48,13 +49,12 @@ static std::tuple<PartitionStatus, Partition> read_partition(const std::string_v
 
   auto make_error = []{ return std::make_pair(PartitionStatus::Error, Partition{}); };
 
+  PartitionStatus status{PartitionStatus::None};
 
   Probe probe (part_dev);
 
   if (!probe.valid())
     return make_error();
-
-  PartitionStatus status{PartitionStatus::None};
 
   auto pr = probe.pr;
 
@@ -67,29 +67,39 @@ static std::tuple<PartitionStatus, Partition> read_partition(const std::string_v
   else
   {
     Partition partition;
-
-    if (!(blkid_probe_has_value(pr, "TYPE") && blkid_probe_has_value(pr, "FSSIZE") && blkid_probe_has_value(pr, "PART_ENTRY_TYPE")))
-      return make_error();
     
-    const char * type {nullptr}, * fs_size{nullptr},
-               * vfat_version{nullptr}, * type_uuid{nullptr};
-    size_t type_uuid_len{0};
+    const char * type {nullptr}, * vfat_version{nullptr}, * type_uuid{nullptr};
+    uint64_t size{0};
     bool isfat32 = false;
 
-    blkid_probe_lookup_value(pr, "TYPE", &type, nullptr);
-    blkid_probe_lookup_value(pr, "FSSIZE", &fs_size, nullptr);
-    blkid_probe_lookup_value(pr, "PART_ENTRY_TYPE", &type_uuid, &type_uuid_len);
+    if (blkid_probe_has_value(pr, "TYPE"))
+      blkid_probe_lookup_value(pr, "TYPE", &type, nullptr);
 
-    if (std::strcmp(type, "vfat") == 0)
+    if (blkid_probe_has_value(pr, "FSSIZE"))
+    {
+      const char * fs_size{nullptr};
+      if (blkid_probe_lookup_value(pr, "FSSIZE", &fs_size, nullptr); fs_size)
+        size = std::strtoull (fs_size, nullptr, 10);
+    } 
+    else if (blkid_probe_has_value(pr, "PART_ENTRY_SIZE"))
+    {
+      const char * part_size{nullptr};
+      if (blkid_probe_lookup_value(pr, "PART_ENTRY_SIZE", &part_size, nullptr); part_size)
+      {
+        // PART_ENTRY_SIZE is size in 512 sectors
+        size = 512 * std::strtoull (part_size, nullptr, 10);
+      }
+    }
+
+    if (blkid_probe_has_value(pr, "PART_ENTRY_TYPE"))
+      blkid_probe_lookup_value(pr, "PART_ENTRY_TYPE", &type_uuid, nullptr);
+
+    if (type && std::strcmp(type, "vfat") == 0)
     {
       if (blkid_probe_has_value(pr, "VERSION"))
       {
         blkid_probe_lookup_value(pr, "VERSION", &vfat_version, nullptr);
-        if (isfat32 = (strcmp(vfat_version, "FAT32") == 0) ; !isfat32)
-        {
-          qCritical() << "vfat is not version FAT32";
-          status = PartitionStatus::Error;
-        }
+        isfat32 = (strcmp(vfat_version, "FAT32") == 0) ;
       }
       else
       {
@@ -100,11 +110,17 @@ static std::tuple<PartitionStatus, Partition> read_partition(const std::string_v
 
     if (status == PartitionStatus::None)
     {
-      partition.type_uuid = type_uuid;
-      partition.fs_type = type;
+      if (type_uuid)
+      {
+        partition.type_uuid = type_uuid;
+        partition.is_efi = partition.type_uuid == EfiPartitionType;
+      }
+      
+      if (type)
+        partition.fs_type = type;
+
+      partition.size = size;
       partition.path = part_dev;
-      partition.size = std::strtoll (fs_size, nullptr, 10);
-      partition.is_efi = partition.type_uuid == EfiPartitionType;
       partition.is_fat32 = isfat32;
       status = PartitionStatus::Ok;
     }
@@ -135,10 +151,10 @@ static bool is_mounted(const std::string_view path_or_dev, const bool is_dev)
 }
 
 
-Partitions get_partitions()
+Partitions get_partitions(const PartitionOpts opts)
 {
   Partitions parts;
-
+  
   if (blkid_cache cache; blkid_get_cache(&cache, nullptr) != 0)
     qCritical() << "could not create blkid cache";
   else
@@ -152,6 +168,9 @@ Partitions get_partitions()
       for (blkid_dev dev; blkid_dev_next(dev_it, &dev) == 0; )
       {
         const auto dev_name = blkid_dev_devname(dev);
+
+        if (opts == PartitionOpts::UnMounted && is_dev_mounted(dev_name))
+          continue;
         
         if (auto [status, part] = read_partition(dev_name); status == PartitionStatus::Ok)
           parts.push_back(std::move(part));
@@ -179,4 +198,15 @@ bool is_dir_mounted(const std::string_view path)
 bool is_dev_mounted(const std::string_view path)
 {
   return is_mounted(path, true);
+}
+
+
+std::string get_partition_fs_from_data (const Partitions& parts, const std::string_view dev)
+{
+  const auto it = std::find_if(std::cbegin(parts), std::cend(parts), [&dev](const Partition& part)
+  {
+    return part.path == dev;
+  });
+
+  return it == std::cend(parts) ? std::string{} : it->fs_type;
 }

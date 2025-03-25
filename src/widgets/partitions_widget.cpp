@@ -8,95 +8,21 @@
 #include <QTableWidgetItem>
 
 
-struct HorizonalLine : public QFrame
+static const QStringList SupportedRootFs = 
 {
-  HorizonalLine()
-  {
-    setFrameShape(QFrame::HLine);
-  }
+  "ext4"
 };
 
-
-struct SelectMounts : public QWidget
+static const QStringList SupportedHomeFs = 
 {
-  SelectMounts(QWidget * parent = nullptr) : QWidget(parent)
-  {
-    QFormLayout * layout = new QFormLayout;
-    setLayout(layout);
-    
-    m_boot = new QComboBox;
-    m_root = new QComboBox;
-    m_home = new QComboBox;
-    m_home_to_root = new QCheckBox("Mount /home to root partition");
-        
-    m_root->setMaximumWidth(200);
-    m_boot->setMaximumWidth(200);
-    m_home->setMaximumWidth(200);
-
-
-    layout->addRow("/", m_root);
-    layout->addRow("/boot", m_boot);
-    layout->addRow("/home", m_home);
-    layout->addRow("", m_home_to_root);
-
-    m_home_to_root->connect(m_home_to_root, &QCheckBox::checkStateChanged, [this](const Qt::CheckState state)
-    {
-      if (state == Qt::Checked)
-      {
-        m_home->setCurrentText(get_root());
-        m_home->setEnabled(false);
-      }
-      else
-      {
-        m_home->setEnabled(true);
-      }
-    });
-
-    m_root->connect(m_root, &QComboBox::currentTextChanged, [this](const QString& value)
-    {
-      if (m_home_to_root->checkState() == Qt::Checked)
-        m_home->setCurrentText(value);
-    });
-
-
-    m_home_to_root->setChecked(true);
-    m_home_to_root->setEnabled(false);
-  }
-
-  void add_boot(const QString& dev)
-  {
-    m_boot->addItem(dev);
-  }
-
-  void add_root(const QString& dev)
-  {
-    m_root->addItem(dev);
-  }
-
-  void add_home(const QString& dev)
-  {
-    m_home->addItem(dev);
-  }
-
-  QString get_root () const
-  {
-    return m_root->itemText(m_root->currentIndex());
-  }
-
-  QString get_boot () const
-  {
-    return m_boot->itemText(m_boot->currentIndex());
-  }
-
-  QString get_home () const
-  {
-      return m_home->itemText(m_home->currentIndex());
-  }
-
-private:
-  QComboBox * m_boot, * m_root, * m_home;
-  QCheckBox * m_home_to_root;
+  "ext4"
 };
+
+static const QStringList SupportedBootFs = 
+{
+  "vfat"  // FAT32
+};
+
 
 
 static std::string format_size(const int64_t size)
@@ -112,6 +38,230 @@ static std::string format_size(const int64_t size)
 }
 
 
+struct SelectMounts : public QWidget
+{
+  SelectMounts(Partitions& parts, QWidget * parent = nullptr) : QWidget(parent), m_partitions(parts)
+  {
+    m_summary = new QLabel;
+
+    QVBoxLayout * layout = new QVBoxLayout;
+    layout->setAlignment(Qt::AlignTop | Qt::AlignCenter);
+
+
+    QFormLayout * mounts_layout = new QFormLayout;
+
+    // root
+    m_root_dev = new QComboBox;
+    m_root_dev->setMaximumWidth(200);
+    m_root_fs = new QComboBox();
+    m_root_fs->setMaximumWidth(200);
+    
+    // boot
+    m_boot_dev = new QComboBox;
+    m_boot_dev->setMaximumWidth(200);
+    m_boot_fs = new QComboBox;
+    m_boot_fs->setMaximumWidth(200);
+
+    // home
+    m_home_dev = new QComboBox;
+    m_home_dev->setMaximumWidth(200);
+    m_home_fs = new QComboBox;
+    m_home_fs->setMaximumWidth(200);
+
+    m_home_to_root = new QCheckBox("Mount /home to root partition");
+    
+    auto root_layout = new QHBoxLayout;
+    root_layout->addWidget(m_root_dev);
+    root_layout->addWidget(m_root_fs);
+
+    auto boot_layout = new QHBoxLayout;
+    boot_layout->addWidget(m_boot_dev);
+    boot_layout->addWidget(m_boot_fs);
+
+    auto home_layout = new QHBoxLayout;
+    home_layout->addWidget(m_home_dev);
+    home_layout->addWidget(m_home_fs);
+
+    m_root_fs->addItem("");
+    m_root_fs->addItems(SupportedRootFs);
+    m_boot_fs->addItem("");
+    m_boot_fs->addItems(SupportedBootFs);
+    m_home_fs->addItem("");
+    m_home_fs->addItems(SupportedHomeFs);
+    
+    m_summary->setContentsMargins(10,0,10,0);
+    m_summary->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
+    m_summary->setWordWrap(true);
+    m_summary->setTextFormat(Qt::TextFormat::MarkdownText);
+    m_summary->setMinimumWidth(400);
+    m_summary->setAlignment(Qt::AlignHCenter | Qt::AlignCenter);
+
+    mounts_layout->addRow("/", root_layout);
+    mounts_layout->addRow("/boot", boot_layout);
+    mounts_layout->addRow("/home", home_layout);
+    mounts_layout->addRow("", m_home_to_root);
+        
+    layout->addLayout(mounts_layout);
+    layout->addSpacing(50);
+    layout->addWidget(m_summary, 0, Qt::AlignCenter);
+
+    setLayout(layout);
+
+
+    connect(m_home_to_root, &QCheckBox::checkStateChanged, [this](const Qt::CheckState state)
+    {
+      if (state == Qt::Checked)
+      {
+        m_home_dev->setCurrentText(m_root_dev->currentText()); // triggers update_mount_data()
+        m_home_dev->setEnabled(false);
+        m_home_fs->setEnabled(false);
+      }
+      else
+      {
+        m_home_dev->setEnabled(true);
+        m_home_fs->setEnabled(true);
+      }
+    });
+
+
+    connect(m_root_dev, &QComboBox::currentTextChanged, [this](const QString& value)
+    {
+      if (m_home_to_root->checkState() == Qt::Checked)
+      {
+        m_home_dev->setCurrentText(value);
+        m_home_fs->setCurrentText(m_root_fs->currentText());
+      
+        update_mount_data();
+      }
+    });
+
+    connect(m_root_fs, &QComboBox::currentTextChanged, this, [this](const QString val)
+    {
+      if (m_home_to_root->checkState() == Qt::Checked)
+      {
+        m_home_fs->setCurrentText(m_root_fs->currentText());
+        update_mount_data();
+      }
+    });
+    
+    
+    connect(m_boot_dev, &QComboBox::currentTextChanged, this, [this](const QString val)
+    {
+      update_mount_data();
+    });
+
+    connect(m_boot_fs, &QComboBox::currentTextChanged, this, [this](const QString val)
+    {
+      update_mount_data();
+    });
+
+
+    // enforce and disable until implemented
+    m_home_to_root->setChecked(true);
+    m_home_to_root->setEnabled(false);
+
+    update_mount_data();
+  }
+
+  void update_mount_data(const bool summary = true)
+  {
+    m_mounts.root.dev = m_root_dev->currentText().toStdString();
+    m_mounts.root.create_fs = m_root_fs->currentIndex () != 0;
+    m_mounts.root.fs = m_root_fs->currentText().toStdString();
+
+    m_mounts.boot.dev = m_boot_dev->currentText().toStdString();
+    m_mounts.boot.create_fs = m_boot_fs->currentIndex () != 0;
+    m_mounts.boot.fs = m_boot_fs->currentText().toStdString();
+
+    m_mounts.home.dev = m_home_dev->currentText().toStdString();
+    m_mounts.home.create_fs = m_home_fs->currentIndex () != 0;
+    m_mounts.home.fs = m_home_fs->currentText().toStdString();
+
+    if (!m_mounts.root.create_fs)
+      m_mounts.root.fs = get_partition_fs_from_data(m_partitions, m_mounts.root.dev);
+    
+    if (!m_mounts.boot.create_fs)
+      m_mounts.boot.fs = get_partition_fs_from_data(m_partitions, m_mounts.boot.dev);
+
+    if (!m_mounts.home.create_fs)
+      m_mounts.home.fs = get_partition_fs_from_data(m_partitions, m_mounts.home.dev);
+
+    if (summary)
+      update_summary();
+  }
+
+  void update_summary()
+  {
+    const auto root_dev = QString::fromStdString(m_mounts.root.dev);
+    const auto root_fs = QString::fromStdString(m_mounts.root.fs);
+    const auto root_create_fs = m_mounts.root.create_fs ? "Yes" : "No";
+
+    const auto boot_dev = QString::fromStdString(m_mounts.boot.dev);
+    const auto boot_fs = QString::fromStdString(m_mounts.boot.fs);
+    const auto boot_create_fs = m_mounts.boot.create_fs ? "Yes" : "No";
+
+    const auto home_dev = QString::fromStdString(m_mounts.home.dev);
+    const auto home_fs = QString::fromStdString(m_mounts.home.fs);
+    const auto home_create_fs = m_mounts.home.create_fs ? "Yes" : "No";
+    
+    m_summary_text.clear();
+
+    QTextStream ss{&m_summary_text};
+
+    ss << "|Mount|Device|Filesystem|Create|\n";
+    ss << "|:---|:---|:---:|:---:|\n";
+    ss << "| / |"     << root_dev << "|"<< root_fs << "|" << root_create_fs << "|\n";
+    ss << "| /boot |" << boot_dev << "|"<< boot_fs << "|" << boot_create_fs << "|\n";
+    ss << "| /home |" << home_dev << "|"<< home_fs << "|" << home_create_fs << "|\n";
+
+    if (root_dev == boot_dev)
+      ss << "<span style=\"color:red;\">/ and /boot cannot be the same partition</span>\n";
+    if (boot_fs != "vfat")
+      ss << "<span style=\"color:red;\">/boot must be vfat</span>\n";
+    if (root_fs.isEmpty())
+      ss << "<span style=\"color:red;\">/ has no filesystem</span>\n";
+    if (boot_fs.isEmpty())
+      ss << "<span style=\"color:red;\">/boot has no filesystem</span>\n";
+    if (home_fs.isEmpty())
+      ss << "<span style=\"color:red;\">/home has no filesystem</span>\n";
+
+    m_summary->setText(m_summary_text);
+  }
+
+
+  void add_boot(const QString& dev)
+  {
+    m_boot_dev->addItem(dev);
+  }
+
+  void add_root(const QString& dev)
+  {
+    m_root_dev->addItem(dev);
+  }
+
+  void add_home(const QString& dev)
+  {
+    m_home_dev->addItem(dev);
+  }
+
+  MountData get_data() const
+  {
+    return m_mounts;
+  }
+
+
+
+private:
+  QComboBox * m_boot_dev, * m_root_dev, * m_home_dev;
+  QComboBox * m_boot_fs, * m_root_fs, * m_home_fs;
+  QCheckBox * m_home_to_root;
+  QLabel * m_summary; 
+  Partitions& m_partitions;
+  MountData m_mounts;
+  QString m_summary_text;
+};
+
+
 PartitionsWidget::PartitionsWidget() : ContentWidget("Mounts")
 {
   static const int COL_DEV  = 0;
@@ -123,11 +273,11 @@ PartitionsWidget::PartitionsWidget() : ContentWidget("Mounts")
   setLayout(layout);
   
   layout->setAlignment(Qt::AlignTop);
-  layout->addWidget(new QLabel("Partitions"));
+  layout->addWidget(new QLabel("Unmounted Partitions"));
   
-
-  m_mounts_widget = new SelectMounts;
-  m_partitions = get_partitions();
+  m_partitions = get_partitions(PartitionOpts::UnMounted);
+  m_mounts_widget = new SelectMounts(m_partitions);
+  
 
   auto table = new QTableWidget(m_partitions.size(), 4);
   table->verticalHeader()->hide();
@@ -160,20 +310,24 @@ PartitionsWidget::PartitionsWidget() : ContentWidget("Mounts")
     
     item_type->setTextAlignment(Qt::AlignHCenter);
     item_efi->setTextAlignment(Qt::AlignHCenter);
-
+    
     table->setItem(row, COL_DEV, item_dev) ;
     table->setItem(row, COL_FS, item_type) ;
     table->setItem(row, COL_EFI, item_efi) ;
     table->setItem(row, COL_SIZE, item_size) ;
     ++row;
 
-    if (part.is_efi)
-      m_mounts_widget->add_boot(path);
-    else
-    {
-      m_mounts_widget->add_home(path);
-      m_mounts_widget->add_root(path);
-    }
+    m_mounts_widget->add_boot(path);
+    m_mounts_widget->add_home(path);
+    m_mounts_widget->add_root(path);
+
+    // if (part.is_efi)
+    //   m_mounts_widget->add_boot(path);
+    // else
+    // {
+    //   m_mounts_widget->add_home(path);
+    //   m_mounts_widget->add_root(path);
+    // }
   }
 
   table->setColumnWidth(COL_DEV,200);
@@ -189,44 +343,21 @@ PartitionsWidget::PartitionsWidget() : ContentWidget("Mounts")
 
 bool PartitionsWidget::is_valid()
 {
-  // widget only allows appropriate partitions
-  // for the mount points.
-  return true;
+  const MountData mounts = m_mounts_widget->get_data();
+  const bool root_ok = !mounts.root.dev.empty() && !mounts.root.fs.empty();
+  const bool boot_ok = !mounts.boot.dev.empty() && !mounts.boot.fs.empty();
+  const bool home_ok = !mounts.home.dev.empty() && !mounts.home.fs.empty();
+  const bool boot_root_same = mounts.root.dev == mounts.boot.dev;
+  
+  return root_ok && boot_ok && home_ok && !boot_root_same;
 }
 
 
-std::pair<bool, PartitionData> PartitionsWidget::get_data()
+std::pair<bool, MountData> PartitionsWidget::get_data()
 {
-  const auto root_part = m_mounts_widget->get_root().toStdString();
-  const auto boot_part = m_mounts_widget->get_boot().toStdString();
-  const auto home_part = m_mounts_widget->get_home().toStdString();
-
-  const auto[have_root, root_fs] = get_fs_from_path(root_part);
-  const auto[have_boot, boot_fs] = get_fs_from_path(boot_part);
-  const auto[have_home, home_fs] = get_fs_from_path(home_part);
-  
-  if (have_root && have_boot && have_home)
-  {
-    return {true, PartitionData {
-                                  .root = {.path = root_part, .fs = root_fs},
-                                  .boot = {.path = boot_part, .fs = boot_fs},
-                                  .home = {.path = home_part, .fs = home_fs}
-                                }};
-  }
+  if (is_valid())
+    return {true, m_mounts_widget->get_data()};
   else
     return {false, {}};
 }
 
-
-std::pair<bool, std::string> PartitionsWidget::get_fs_from_path(const std::string& path)
-{
-  const auto it = std::find_if(std::cbegin(m_partitions), std::cend(m_partitions), [&path](const Partition& part)
-  {
-    return part.path == path;
-  });
-
-  if (it == std::cend(m_partitions))
-    return {false, ""};
-  else
-    return {true, it->fs_type};
-}

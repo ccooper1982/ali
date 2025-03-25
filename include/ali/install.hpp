@@ -30,8 +30,12 @@ private:
   void log_stage_start(const std::string_view msg);
   void log_stage_end(const std::string_view msg);
   
+  
+  bool filesystems();
+  bool create_filesystem(const std::string_view dev, const std::string_view fs);
+  
+  bool mount();
   bool do_mount(const std::string_view dev, const std::string_view path, const std::string_view fs);
-  bool mount();    
   bool pacman_strap();
   bool fstab();
   

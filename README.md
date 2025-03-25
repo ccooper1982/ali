@@ -4,8 +4,7 @@
 > [!WARNING]
 > This is in early development and not ready for general use.
 
-
-<!-- ![start_screen_small](https://github.com/user-attachments/assets/442793c1-7874-49ef-8b44-964fcbbd0643) -->
+<br/>
 
 <img src="https://github.com/user-attachments/assets/442793c1-7874-49ef-8b44-964fcbbd0643" alt="Alt Text" width="500">
 
@@ -16,16 +15,16 @@
 ## Features
 - Clear UI, no unnecessary fluff
 - Adds only 200MB to the official ISO
-- Ensures `/boot` is EFI (FAT32) 
+- Ensures `/boot` is FAT32
   - Later version will check the size is suitable
 - Validation, preventing install if required (limited at the moment, will expand in the future)
+- Create `ext4` and `vfat (FAT32)` filesystems (beta)
 
 
 ## Limitations
 There are limitations which will be addressed over the coming weeks:
 
-- Does not manage partitions or create filesystems. You must do this manually with `fdisk` or `cfdisk` before starting `ali`
-- Doesn't use the root filesystem type, assumes `/` is `ext4`
+- Does not create/resize partitions, etc. You must do this manually with `fdisk` or `cfdisk` before starting `ali`
 - Only tested with a GPT partition table (with root as `ext4`)
 - Bootloader: only GRUB
 - Locale: Ignored / unavailable
@@ -59,16 +58,16 @@ window manager environment. The `ali` executable itself is ~450KB.
 
 ## Usage
 - Run the ISO in Virtual Box
-- The display server is not started at boot, this is to allow creating partitions/filesystem
+- The display server is not started at boot, this is to allow creating partitions/filesystems
 - Run `startx`
 - An `openbox` session is started
 - The UI has a log view in the "Install" section. It is separate from the main log, displaying only minimal information. So some operations appear dead (i.e. `pacstrap` and `pacman`) but they are running
-- You can right-click on the desktop, then select "Log Out" to return to the terminal (all other options do nothing, and will be removed)
+- You can right-click on the desktop, then select "Return to terminal" to `chroot` if required
 - Full log file: `/var/log/ali/install.log`
 
 
 ## Development
-Keep it simple, avoid offering a million options, but do add:
+Aside from removing the limitations listed above:
 
 - Bootloader: add `systemd-boot`
 - Profiles:

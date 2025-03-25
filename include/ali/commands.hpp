@@ -23,10 +23,10 @@ struct Command
   // Run command and receive each line in the supplied callback.
   Command (const std::string_view cmd, OutputHandler&& on_output) ;
   
-  int execute (const std::string_view cmd, const int max_lines = -1);
-  int execute (const int max_lines = -1);
-  int execute (OutputHandler&& on_output, const int max_lines = -1);
-  int execute_write(const std::string_view s);
+  virtual int execute (const std::string_view cmd, const int max_lines = -1);
+  virtual int execute (const int max_lines = -1);
+  virtual int execute (OutputHandler&& on_output, const int max_lines = -1);
+  virtual int execute_write(const std::string_view s);
   
   int get_result() const { return m_result; }
 
@@ -134,5 +134,32 @@ struct SysClockSync : public Command
 {
   SysClockSync();
 };
+
+
+template<class FS>
+struct CreateFilesystem : public Command
+{
+  CreateFilesystem(const std::string_view dev) : Command(std::format("mkfs.{} {}", FS::cmd, dev))
+  {
+    qDebug() << std::format("mkfs.{} {}", FS::cmd, dev);
+  }
+
+private:
+  std::string dev;
+};
+
+struct Ext4
+{
+  static constexpr char cmd[] = "ext4";
+};
+
+struct Fat32
+{
+  static constexpr char cmd[] = "vfat -F 32";
+};
+
+using CreateExt4 = CreateFilesystem<Ext4>;
+using CreateFat32 = CreateFilesystem<Fat32>;
+
 
 #endif

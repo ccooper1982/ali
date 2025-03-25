@@ -6,12 +6,13 @@
 #include <QString>
 
 
-struct PartitionData
+struct MountData
 {
   struct Mount
   {
-    std::string path;
+    std::string dev;
     std::string fs;
+    bool create_fs{false};
   };
 
   Mount root;
@@ -29,7 +30,7 @@ struct PartitionsWidget : public ContentWidget
 
   virtual bool is_valid() override;
 
-  std::pair<bool, PartitionData> get_data() ;
+  std::pair<bool, MountData> get_data() ;
 
 private:
   std::pair<bool, std::string> get_fs_from_path(const std::string& path);
