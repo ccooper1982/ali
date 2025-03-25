@@ -1,8 +1,10 @@
 #include <ali/util.hpp>
 #include <string.h>
 #include <cstring>
-#include <QDebug>
+#include <sys/mount.h>
 #include <libmount/libmount.h>
+#include <QDebug>
+
 
 static const std::string EfiPartitionType {"c12a7328-f81f-11d2-ba4b-00a0c93ec93b"};
 
@@ -99,11 +101,11 @@ static std::tuple<PartitionStatus, Partition> read_partition(const std::string_v
     if (status == PartitionStatus::None)
     {
       partition.type_uuid = type_uuid;
-      partition.is_efi = partition.type_uuid == EfiPartitionType;
-      partition.type = type;
-      partition.is_fat32 = isfat32;
+      partition.fs_type = type;
       partition.path = part_dev;
       partition.size = std::strtoll (fs_size, nullptr, 10);
+      partition.is_efi = partition.type_uuid == EfiPartitionType;
+      partition.is_fat32 = isfat32;
       status = PartitionStatus::Ok;
     }
 

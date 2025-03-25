@@ -6,7 +6,6 @@
 #include <string_view>
 #include <iostream>
 #include <format>
-#include <sys/mount.h>
 #include <blkid/blkid.h>
 #include <ali/common.hpp>
 
@@ -16,6 +15,8 @@ inline const fs::path RootMnt{"/mnt"};
 inline const fs::path EfiMnt{"/mnt/boot/efi"};
 inline const fs::path FsTabPath{"/mnt/etc/fstab"};
 
+
+// partitions, mounting, filesystems
 
 enum class PartitionStatus
 {
@@ -33,13 +34,13 @@ struct Partition
   Partition() = default;
 
   Partition(const std::string& path, const std::string& type, const int64_t size)
-    : type(type), path(path), size(size)
+    : fs_type(type), path(path), size(size)
   {
 
   }
 
 
-  std::string type; // ext4, vfat, etc
+  std::string fs_type; // ext4, vfat, etc
   std::string path; // /dev/sda1, /dev/nvmen1p3, etc
   std::string type_uuid;
   int64_t size{0};
@@ -52,10 +53,10 @@ struct Partition
 using Partitions = std::vector<Partition>;
 
 
-//PartitionStatus check_partition_status(const std::string_view part);
-Partitions get_partitions();
 
+Partitions get_partitions();
 bool is_dir_mounted(const std::string_view path);
 bool is_dev_mounted(const std::string_view path);
+
 
 #endif

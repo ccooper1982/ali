@@ -154,7 +154,7 @@ PartitionsWidget::PartitionsWidget() : ContentWidget("Mounts")
     const auto path = QString::fromStdString(part.path);
 
     auto item_dev = new QTableWidgetItem(path);
-    auto item_type = new QTableWidgetItem(QString::fromStdString(part.is_fat32 ? "vfat (FAT32)" : part.type));
+    auto item_type = new QTableWidgetItem(QString::fromStdString(part.is_fat32 ? "vfat (FAT32)" : part.fs_type));
     auto item_efi = new QTableWidgetItem(QString::fromStdString(part.is_efi ? "True" : "False"));
     auto item_size = new QTableWidgetItem(QString::fromStdString(format_size(part.size)));
     
@@ -228,5 +228,5 @@ std::pair<bool, std::string> PartitionsWidget::get_fs_from_path(const std::strin
   if (it == std::cend(m_partitions))
     return {false, ""};
   else
-    return {true, it->type};
+    return {true, it->fs_type};
 }

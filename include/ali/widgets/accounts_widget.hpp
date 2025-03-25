@@ -17,6 +17,21 @@ struct AccountsWidget : public ContentWidget
     return m_root_pass->text().toStdString();
   }
 
+  std::string user_username() const
+  {
+    return m_user_username->text().toStdString();
+  }
+
+  std::string user_password() const
+  {
+    return m_user_pass->text().toStdString();
+  }
+
+  bool user_is_sudo() const
+  {
+    return m_user_sudo->isChecked();
+  }
+
 private:
   QLineEdit * m_root_pass;
   QLineEdit * m_user_username;

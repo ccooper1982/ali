@@ -26,16 +26,20 @@ signals:
 
 private:
   void log(const std::string_view msg);
+  void log_critical(const std::string_view msg);
   void log_stage_start(const std::string_view msg);
   void log_stage_end(const std::string_view msg);
-
-  void log_critical(const std::string_view msg);
-
+  
   bool do_mount(const std::string_view dev, const std::string_view path, const std::string_view fs);
   bool mount();    
   bool pacman_strap();
   bool fstab();
-  bool passwords();
+  
+  bool root_account();
+  bool user_account();
+  bool add_to_sudoers(const std::string& user);
+  bool set_password(const std::string_view user, const std::string_view pass);
+
   bool boot_loader();
   bool localise();
 

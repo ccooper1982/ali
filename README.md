@@ -46,8 +46,7 @@ Some UI options are ignored:
 
 ## Design
 - Qt6 for the UI
-- Partitions, filesystems and mounting: `libblkid` and `libmount`
-- Everything else: open pipe (`popen()`) or parsing/writing config files
+- Piping to commands or using sys calls or libraries (`libblkid` and `libmount`)
 
 
 ## Development / Testing
@@ -78,7 +77,6 @@ Keep it simple, avoid offering a million options, but do add:
 - Profiles:
   - Minimal: No desktop
   - Desktop: Not an exhaustive selection
-  - Server: Only if useful and significantly different from minimal
 - Configs:
   - Save install config to file
   - Open install config, to either:
