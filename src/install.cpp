@@ -233,29 +233,10 @@ bool Install::root_account()
   }
 
   const bool pass_set = set_password("root", root_passwd);
-
-  // bool pass_set{false}, pass_valid{false};
-
-  // ChRootCmd cmd_passwd{"passwd --stdin"};
-  // if (cmd_passwd.execute_write(root_passwd) == CmdSuccess)
-  // {
-  //   pass_set = true;
-    
-  //   ChRootCmd cmd_check{"passwd -S root", [&pass_valid](const std::string_view out)
-  //   {
-  //     if (out.size() > 6) // at least "root P"
-  //     {
-  //       if (const auto pos = out.find(' '); pos != std::string_view::npos)
-  //         pass_valid = out.substr(pos+1, 1) == "P";
-  //     }
-  //   }};
-
-  //   cmd_check.execute(); // if this fails, pass_valid remains false
-  // }
   
   qDebug() << "Leave";
 
-  return pass_set ;//&& pass_valid;
+  return pass_set ;
 }
 
 
@@ -264,12 +245,20 @@ bool Install::user_account()
   qDebug() << "Enter";
 
   const std::string username = Widgets::accounts()->user_username();
+  const std::string password = Widgets::accounts()->user_password();
+
   bool user_created{false};
 
+  // sanity check: username and password should be validated by UI
   if (username.empty())
   {
     user_created = true;
     log("No user to create");
+  }
+  else if (!username.empty() && password.empty())
+  {
+    user_created = false;
+    log_critical("Have username but not password");
   }
   else
   {
@@ -288,8 +277,6 @@ bool Install::user_account()
     }
     else
     {
-      const std::string password = Widgets::accounts()->user_password();
-      
       if (!set_password(username, password))
         log_critical("Failed to set user password");
       else if (can_sudo)      
