@@ -29,7 +29,6 @@ There are limitations which will be addressed over the coming weeks:
 - Only tested with a GPT partition table (with root as `ext4`)
 - Bootloader: only GRUB
 - Locale: Ignored / unavailable
-- Accounts: only sets password for root, and no user account created
 - Packages: only required packages installed, and kernel is only `linux` - no additional packages yet
 - Tested only with English language and `uk`/`us` keyboard
 - Tested only within a VM
@@ -38,8 +37,6 @@ There are limitations which will be addressed over the coming weeks:
 Some UI options are ignored:
 - Mounts:
   - Does not mount `/home`, so it always uses `/`
-- Accounts:
-  - User account name/password ignored (user not added)
 - Network:
   - "NTP" option ignored
   - "Copy Config" ignored
