@@ -57,14 +57,14 @@ bool Install::install ()
   bool minimal = false;
   try
   {
-    // minimal = exec_stage(&Install::filesystems, "filesystems");
-    minimal = exec_stage(&Install::filesystems, "filesystems") &&
-              exec_stage(&Install::mount, "mount") &&
-              exec_stage(&Install::pacman_strap, "pacstrap") &&
-              exec_stage(&Install::fstab, "fstab") &&
-              exec_stage(&Install::root_account, "root account") &&
-              exec_stage(&Install::user_account, "user account") &&
-              exec_stage(&Install::boot_loader, "bootloader");
+    minimal = exec_stage(&Install::filesystems, "filesystems");
+    // minimal = exec_stage(&Install::filesystems, "filesystems") &&
+    //           exec_stage(&Install::mount, "mount") &&
+    //           exec_stage(&Install::pacman_strap, "pacstrap") &&
+    //           exec_stage(&Install::fstab, "fstab") &&
+    //           exec_stage(&Install::root_account, "root account") &&
+    //           exec_stage(&Install::user_account, "user account") &&
+    //           exec_stage(&Install::boot_loader, "bootloader");
 
     emit on_complete(minimal);
   }
@@ -109,32 +109,67 @@ bool Install::filesystems()
 }
 
 
-bool Install::create_filesystem(const std::string_view dev, const std::string_view fs)
+bool Install::create_filesystem(const std::string_view part_dev, const std::string_view fs)
 {
   qDebug() << "Enter";
 
-  log(std::format("Creating {} on {}", fs, dev));
+  log(std::format("Creating {} on {}", fs, part_dev));
+
+  const auto parts = get_partitions(PartitionOpts::UnMounted, false);
 
   bool created{true};
+  bool root_part_type_set{false}, boot_part_type_set{false};
   int res{0};
+
+  const int part_num = get_partition_part_number_from_cached(parts, part_dev);
+  const std::string parent_dev = get_partition_parent_from_cached(parts, part_dev);
+
+  if (!part_num || parent_dev.empty())
+  {
+    log("Cannot get parent device and/or partition number, cannot set partition type. Not an error");
+  }
 
   if (fs == "ext4")
   {
-    CreateExt4 cmd{dev};
+    CreateExt4 cmd{part_dev};
     
     if (res = cmd.execute() ; res != CmdSuccess)
       created = false;
+    else
+    {
+      
+      if (part_num && !parent_dev.empty())
+      {
+        SetPartitionAsLinuxRoot type_set_cmd{part_num, parent_dev};
+        root_part_type_set = type_set_cmd.execute() == CmdSuccess;
+      }
+    }
   }
   else if (fs == "vfat")
   {
-    CreateFat32 cmd{dev};
+    CreateFat32 cmd{part_dev};
     
     if (res = cmd.execute() ; res != CmdSuccess)
       created = false;
+    else
+    {
+      if (part_num && !parent_dev.empty())
+      {
+        SetPartitionAsEfi type_set_cmd{part_num, parent_dev};
+        boot_part_type_set = type_set_cmd.execute() == CmdSuccess;
+      }
+    }
   }
 
   if (!created)
     qCritical() << "Failed to create filesystem: " << strerror(res);
+  else
+  {
+    if (!root_part_type_set)
+      log("Could not set / as a Linux x86-64 partition type. Not an error");
+    if (!boot_part_type_set)
+      log("Could not set /boot as an EFI partition type. Does not prevent boot");
+  }
 
   qDebug() << "Leave";
 
@@ -155,13 +190,13 @@ bool Install::mount()
     log_critical("Could not get the partitions paths and filesystem");
   else
   {
-    if (is_dir_mounted(BootMnt.string()))
+    if (is_path_mounted(BootMnt.string()))
     {
       log(std::format("{} is already mounted, unmounting", BootMnt.c_str()));
       ::umount(BootMnt.c_str());
     }
 
-    if (is_dir_mounted(RootMnt.string()))
+    if (is_path_mounted(RootMnt.string()))
     {
       log(std::format("{} is already mounted, unmounting", RootMnt.c_str()));
       ::umount(RootMnt.c_str());

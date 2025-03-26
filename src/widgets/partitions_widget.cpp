@@ -178,13 +178,13 @@ struct SelectMounts : public QWidget
     m_mounts.home.fs = m_home_fs->currentText().toStdString();
 
     if (!m_mounts.root.create_fs)
-      m_mounts.root.fs = get_partition_fs_from_data(m_partitions, m_mounts.root.dev);
+      m_mounts.root.fs = get_partition_fs_from_cached(m_partitions, m_mounts.root.dev);
     
     if (!m_mounts.boot.create_fs)
-      m_mounts.boot.fs = get_partition_fs_from_data(m_partitions, m_mounts.boot.dev);
+      m_mounts.boot.fs = get_partition_fs_from_cached(m_partitions, m_mounts.boot.dev);
 
     if (!m_mounts.home.create_fs)
-      m_mounts.home.fs = get_partition_fs_from_data(m_partitions, m_mounts.home.dev);
+      m_mounts.home.fs = get_partition_fs_from_cached(m_partitions, m_mounts.home.dev);
 
     if (summary)
       update_summary();
@@ -301,7 +301,7 @@ PartitionsWidget::PartitionsWidget() : ContentWidget("Mounts")
   int row = 0;
   for(const auto& part : m_partitions)
   {
-    const auto path = QString::fromStdString(part.path);
+    const auto path = QString::fromStdString(part.dev);
 
     auto item_dev = new QTableWidgetItem(path);
     auto item_type = new QTableWidgetItem(QString::fromStdString(part.is_fat32 ? "vfat (FAT32)" : part.fs_type));

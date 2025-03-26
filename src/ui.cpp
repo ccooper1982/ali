@@ -64,7 +64,7 @@ bool check_commands_exist ()
   static const std::vector<std::string> Commands =
   {
     "pacman", "localectl", "locale-gen", "loadkeys", "setfont", "timedatectl", "ip", "lsblk", 
-    "mount", "swapon", "ln", "hwclock", "chpasswd", "passwd"
+    "mount", "swapon", "ln", "hwclock", "chpasswd", "passwd", "sgdisk", "useradd"
 
     #ifdef ALI_PROD
       ,"pacstrap", "genfstab", "arch-chroot"

@@ -2,12 +2,14 @@
 #include <string.h>
 #include <cstring>
 #include <sys/mount.h>
+#include <blkid/blkid.h>
 #include <libmount/libmount.h>
 #include <libudev.h>
 #include <QDebug>
 
 
-static const std::string EfiPartitionType {"c12a7328-f81f-11d2-ba4b-00a0c93ec93b"};
+static Partitions partitions;
+
 
 
 struct Probe
@@ -45,6 +47,9 @@ struct Probe
 
 static std::tuple<PartitionStatus, Partition> read_partition(const std::string_view part_dev)
 {
+  static const unsigned SectorsPerPartSize = 512;
+
+
   qDebug() << "Enter: " << part_dev;
 
   auto make_error = []{ return std::make_pair(PartitionStatus::Error, Partition{}); };
@@ -66,40 +71,44 @@ static std::tuple<PartitionStatus, Partition> read_partition(const std::string_v
   }
   else
   {
-    Partition partition;
+    Partition partition {.dev = std::string{part_dev}};
     
-    const char * type {nullptr}, * vfat_version{nullptr}, * type_uuid{nullptr};
-    uint64_t size{0};
-    bool isfat32 = false;
-
     if (blkid_probe_has_value(pr, "TYPE"))
-      blkid_probe_lookup_value(pr, "TYPE", &type, nullptr);
-
-    if (blkid_probe_has_value(pr, "FSSIZE"))
     {
-      const char * fs_size{nullptr};
-      if (blkid_probe_lookup_value(pr, "FSSIZE", &fs_size, nullptr); fs_size)
-        size = std::strtoull (fs_size, nullptr, 10);
-    } 
-    else if (blkid_probe_has_value(pr, "PART_ENTRY_SIZE"))
+      const char * type {nullptr};
+      blkid_probe_lookup_value(pr, "TYPE", &type, nullptr);
+      partition.fs_type = type;
+    }
+
+    if (blkid_probe_has_value(pr, "PART_ENTRY_SIZE"))
     {
       const char * part_size{nullptr};
       if (blkid_probe_lookup_value(pr, "PART_ENTRY_SIZE", &part_size, nullptr); part_size)
-      {
-        // PART_ENTRY_SIZE is size in 512 sectors
-        size = 512 * std::strtoull (part_size, nullptr, 10);
-      }
+        partition.size = SectorsPerPartSize * std::strtoull (part_size, nullptr, 10);
     }
 
     if (blkid_probe_has_value(pr, "PART_ENTRY_TYPE"))
+    {
+      const char * type_uuid{nullptr};
       blkid_probe_lookup_value(pr, "PART_ENTRY_TYPE", &type_uuid, nullptr);
+      partition.type_uuid = type_uuid;
+      partition.is_efi = partition.type_uuid == EfiPartitionType;
+    }
 
-    if (type && std::strcmp(type, "vfat") == 0)
+    if (blkid_probe_has_value(pr, "PART_ENTRY_NUMBER"))
+    {
+      const char * number{nullptr};
+      blkid_probe_lookup_value(pr, "PART_ENTRY_NUMBER", &number, nullptr);
+      partition.part_number = static_cast<int>(std::strtol(number, nullptr, 10) & 0xFFFFFFFF);
+    }
+
+    if (partition.fs_type == "vfat")
     {
       if (blkid_probe_has_value(pr, "VERSION"))
       {
+        const char * vfat_version{nullptr};
         blkid_probe_lookup_value(pr, "VERSION", &vfat_version, nullptr);
-        isfat32 = (strcmp(vfat_version, "FAT32") == 0) ;
+        partition.is_fat32 = (strcmp(vfat_version, "FAT32") == 0) ;
       }
       else
       {
@@ -108,24 +117,22 @@ static std::tuple<PartitionStatus, Partition> read_partition(const std::string_v
       }
     }
 
-    if (status == PartitionStatus::None)
+    if (dev_t blk_dev_num = blkid_probe_get_wholedisk_devno(pr); !blk_dev_num)
+      qCritical() << "Could not parent device for partition: " << part_dev;
+    else
     {
-      if (type_uuid)
+      if (char * name = blkid_devno_to_devname(blk_dev_num); name)
       {
-        partition.type_uuid = type_uuid;
-        partition.is_efi = partition.type_uuid == EfiPartitionType;
+        qCritical() << "devno_to_devname: " << name;
+        partition.parent_dev = name;
+        ::free(name);
       }
-      
-      if (type)
-        partition.fs_type = type;
-
-      partition.size = size;
-      partition.path = part_dev;
-      partition.is_fat32 = isfat32;
-      status = PartitionStatus::Ok;
     }
 
-    return {status, partition};
+    if (status == PartitionStatus::None)
+      return {PartitionStatus::Ok, partition};
+    else
+      return make_error();
   }
 }
 
@@ -151,10 +158,27 @@ static bool is_mounted(const std::string_view path_or_dev, const bool is_dev)
 }
 
 
-Partitions get_partitions(const PartitionOpts opts)
+static std::optional<std::reference_wrapper<const Partition>> get_partition_from_cache(const Partitions& parts, const std::string_view dev)
 {
-  Partitions parts;
-  
+  const auto it = std::find_if(std::cbegin(parts), std::cend(parts), [&dev](const Partition& part)
+  {
+    return part.dev == dev;
+  });
+
+  if (it == std::cend(parts))
+    return std::nullopt;
+  else
+    return std::ref(*it);
+}
+
+
+Partitions get_partitions(const PartitionOpts opts, const bool force)
+{  
+  if (!force)
+    return partitions;
+
+  partitions.clear();
+
   if (blkid_cache cache; blkid_get_cache(&cache, nullptr) != 0)
     qCritical() << "could not create blkid cache";
   else
@@ -173,23 +197,26 @@ Partitions get_partitions(const PartitionOpts opts)
           continue;
         
         if (auto [status, part] = read_partition(dev_name); status == PartitionStatus::Ok)
-          parts.push_back(std::move(part));
+        {
+          qDebug() << part;
+          partitions.push_back(std::move(part));
+        }
       }
 
       blkid_dev_iterate_end(dev_it);
     }
   }
 
-  std::sort(parts.begin(), parts.end(), [](const Partition& a, const Partition& b)
+  std::sort(partitions.begin(), partitions.end(), [](const Partition& a, const Partition& b)
   {
-    return a.path < b.path;
+    return a.dev < b.dev;
   });
 
-  return parts;
+  return partitions;
 }
 
 
-bool is_dir_mounted(const std::string_view path)
+bool is_path_mounted(const std::string_view path)
 {
   return is_mounted(path, false);
 }
@@ -201,12 +228,28 @@ bool is_dev_mounted(const std::string_view path)
 }
 
 
-std::string get_partition_fs_from_data (const Partitions& parts, const std::string_view dev)
+std::string get_partition_fs_from_cached (const Partitions& parts, const std::string_view dev)
 {
-  const auto it = std::find_if(std::cbegin(parts), std::cend(parts), [&dev](const Partition& part)
-  {
-    return part.path == dev;
-  });
+  if (const auto opt = get_partition_from_cache(parts, dev) ; opt)
+    return opt->get().fs_type;
+  else
+    return std::string{};
+}
 
-  return it == std::cend(parts) ? std::string{} : it->fs_type;
+
+std::string get_partition_parent_from_cached (const Partitions& parts, const std::string_view dev)
+{
+  if (const auto opt = get_partition_from_cache(parts, dev) ; opt)
+    return opt->get().parent_dev;
+  else
+    return std::string{};
+}
+
+
+int get_partition_part_number_from_cached (const Partitions& parts, const std::string_view dev)
+{
+  if (const auto opt = get_partition_from_cache(parts, dev) ; opt)
+    return opt->get().part_number;
+  else
+    return 0;
 }

@@ -2,12 +2,9 @@
 #define ALI_UTILS_H
 
 #include <vector>
-#include <map>
 #include <string_view>
 #include <iostream>
-#include <format>
-#include <QString>
-#include <blkid/blkid.h>
+#include <QDebug>
 #include <ali/common.hpp>
 
 
@@ -15,6 +12,10 @@ inline const fs::path BootMnt{"/mnt/boot"};
 inline const fs::path RootMnt{"/mnt"};
 inline const fs::path EfiMnt{"/mnt/boot/efi"};
 inline const fs::path FsTabPath{"/mnt/etc/fstab"};
+
+inline const std::string EfiPartitionType {"c12a7328-f81f-11d2-ba4b-00a0c93ec93b"};
+inline const std::string EfiHex{"ef00"};
+inline const std::string LinuxRootPartitionHex {"8304"};
 
 
 // partitions, mounting, filesystems
@@ -32,29 +33,28 @@ enum class PartitionStatus
 
 struct Partition
 {
-  // struct Assign
-  // {
-  //   std::string fs_type;
-  //   bool is_efi{false};
-  // };
-
-  Partition() = default;
-
-  Partition(const std::string& path, const std::string& type, const int64_t size)
-    : fs_type(type), path(path), size(size)
-  {
-
-  }
-
+  std::string dev;        // /dev/sda1, /dev/nvmen1p3, etc
+  std::string parent_dev; // /dev/sda, /dev/nvmen1, etc
   std::string fs_type;    // ext4, vfat, etc
-  std::string path;       // /dev/sda1, /dev/nvmen1p3, etc
   std::string type_uuid;  // partition type UUID (useful to identify EFI)
-  int64_t size{0};        // fs size  
-  bool is_efi{false};
-  bool is_fat32{false};
-  //Assign assigned;        // in UI, user can assign a filesystem to a partition
+  int64_t size{0};        // partition/filesystem size  
+  int part_number{0};     // partition number
+  bool is_efi{false};     // if part type UUID is for EFI
+  bool is_fat32{false};   // if fs_type is VFAT and version is FAT32
 };
 
+
+inline QDebug operator<<(QDebug q, const Partition& p)
+{
+  q << p.dev << '\n';
+  q << '\t' << "Filesystem: " << p.fs_type << '\n';
+  q << '\t' << "Size: " << p.size << '\n';
+  q << '\t' << "Part Type UUID: " << p.type_uuid << '\n';
+  q << '\t' << "Part Num: " << p.part_number << '\n';
+  q << '\t' << "EFI: " << p.is_efi << '\n';
+  q << '\t' << "FAT32: " << p.is_fat32 << '\n';
+  return q;
+}
 
 using Partitions = std::vector<Partition>;
 
@@ -64,11 +64,13 @@ enum class PartitionOpts
   UnMounted
 };
 
-Partitions get_partitions(const PartitionOpts opts);
+Partitions get_partitions(const PartitionOpts opts, const bool force = true);
 
-std::string get_partition_fs_from_data (const Partitions& parts, const std::string_view dev);
+std::string get_partition_fs_from_cached (const Partitions& parts, const std::string_view dev);
+int get_partition_part_number_from_cached (const Partitions& parts, const std::string_view dev);
+std::string get_partition_parent_from_cached (const Partitions& parts, const std::string_view dev);
 
-bool is_dir_mounted(const std::string_view path);
+bool is_path_mounted(const std::string_view path);
 bool is_dev_mounted(const std::string_view path);
 
 
