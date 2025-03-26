@@ -136,6 +136,7 @@ struct SysClockSync : public Command
 };
 
 
+// Create filesystem
 template<class FS>
 struct CreateFilesystem : public Command
 {
@@ -162,22 +163,48 @@ using CreateExt4 = CreateFilesystem<Ext4>;
 using CreateFat32 = CreateFilesystem<Fat32>;
 
 
-struct SetPartitionAsEfi : public Command
+// Set partition type
+// struct SetPartitionAsEfi : public Command
+// {
+//   SetPartitionAsEfi(const int part_num, const std::string_view parent_dev)
+//     : Command(std::format("sgdisk -t{}:{} {}", part_num, EfiHex, parent_dev))
+//   {
+//     qDebug() << std::format("sgdisk -t{}:{} {}", part_num, EfiHex, parent_dev);
+//   }
+// };
+
+// struct SetPartitionAsLinuxRoot : public Command
+// {
+//   SetPartitionAsLinuxRoot(const int part_num, const std::string_view parent_dev)
+//     : Command(std::format("sgdisk -t{}:{} {}", part_num, LinuxRootPartitionHex, parent_dev))
+//   {
+//     qDebug() << std::format("sgdisk -t{}:{} {}", part_num, LinuxRootPartitionHex, parent_dev);
+//   }
+// };
+
+
+template<class T>
+struct SetPartitionType : public Command
 {
-  SetPartitionAsEfi(const int part_num, const std::string_view parent_dev)
-    : Command(std::format("sgdisk -t{}:{} {}", part_num, EfiHex, parent_dev))
+  SetPartitionType(const int part_num, const std::string_view parent_dev)
+    : Command(std::format("sgdisk -t{}:{} {}", part_num, T::hex, parent_dev))
   {
-    qDebug() << std::format("sgdisk -t{}:{} {}", part_num, EfiHex, parent_dev);
+    qDebug() << std::format("sgdisk -t{}:{} {}", part_num, T::hex, parent_dev);
   }
 };
 
-struct SetPartitionAsLinuxRoot : public Command
+struct EfiType
 {
-  SetPartitionAsLinuxRoot(const int part_num, const std::string_view parent_dev)
-    : Command(std::format("sgdisk -t{}:{} {}", part_num, LinuxRootPartitionHex, parent_dev))
-  {
-    qDebug() << std::format("sgdisk -t{}:{} {}", part_num, LinuxRootPartitionHex, parent_dev);
-  }
+  static constexpr char hex[] = "ef00";
 };
+
+struct LinuxRootType
+{
+  static constexpr char hex[] = "8304";
+};
+
+using SetPartitionAsEfi = SetPartitionType<EfiType>;
+using SetPartitionAsLinuxRoot = SetPartitionType<LinuxRootType>;
+
 
 #endif

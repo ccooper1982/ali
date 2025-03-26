@@ -275,7 +275,7 @@ PartitionsWidget::PartitionsWidget() : ContentWidget("Mounts")
   layout->setAlignment(Qt::AlignTop);
   layout->addWidget(new QLabel("Unmounted Partitions"));
   
-  m_partitions = get_partitions(PartitionOpts::UnMounted);
+  m_partitions = probe_partitions(PartitionOpts::UnMounted);
   m_mounts_widget = new SelectMounts(m_partitions);
   
 

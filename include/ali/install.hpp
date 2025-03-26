@@ -4,7 +4,7 @@
 #include <functional>
 #include <QString>
 #include <QObject>
-
+#include <ali/commands.hpp>
 
 class Install : public QObject
 {
@@ -29,11 +29,39 @@ private:
   void log_critical(const std::string_view msg);
   void log_stage_start(const std::string_view msg);
   void log_stage_end(const std::string_view msg);
-  
-  
+    
   bool filesystems();
   bool create_filesystem(const std::string_view dev, const std::string_view fs);
+
+  // TODO not convinced I like this
+  template<class Cmd>
+  void set_partition_type(const std::string_view part_dev)
+  {
+    const auto parts = get_partitions();
   
+    const int part_num = get_partition_part_number_from_cached(parts, part_dev);
+    const std::string parent_dev = get_partition_parent_from_cached(parts, part_dev);
+
+    if (!part_num || parent_dev.empty())
+    {
+      log("Cannot get parent device and/or partition number, cannot set partition type. Not an error");
+    }
+    else
+    {
+      bool part_type_set{false};
+      
+      if (part_num && !parent_dev.empty())
+      {
+        Cmd cmd{part_num, parent_dev};
+        part_type_set = cmd.execute() == CmdSuccess;
+      }
+
+      if (!part_type_set)
+        log(std::format("Failed to set partition type for {}. This is not an error.", part_dev));
+    }
+  }
+  
+
   bool mount();
   bool do_mount(const std::string_view dev, const std::string_view path, const std::string_view fs);
   bool pacman_strap();

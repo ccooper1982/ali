@@ -7,6 +7,7 @@
 #include <libudev.h>
 #include <QDebug>
 
+static const std::string EfiPartitionType {"c12a7328-f81f-11d2-ba4b-00a0c93ec93b"};
 
 static Partitions partitions;
 
@@ -172,11 +173,8 @@ static std::optional<std::reference_wrapper<const Partition>> get_partition_from
 }
 
 
-Partitions get_partitions(const PartitionOpts opts, const bool force)
+const Partitions& probe_partitions(const PartitionOpts opts)
 {  
-  if (!force)
-    return partitions;
-
   partitions.clear();
 
   if (blkid_cache cache; blkid_get_cache(&cache, nullptr) != 0)
@@ -212,6 +210,12 @@ Partitions get_partitions(const PartitionOpts opts, const bool force)
     return a.dev < b.dev;
   });
 
+  return partitions;
+}
+
+
+const Partitions& get_partitions()
+{
   return partitions;
 }
 

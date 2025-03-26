@@ -8,18 +8,16 @@
 #include <ali/common.hpp>
 
 
+// TODO this could benefit from a refresh, the functions have become
+//      like a C api
+
 inline const fs::path BootMnt{"/mnt/boot"};
 inline const fs::path RootMnt{"/mnt"};
 inline const fs::path EfiMnt{"/mnt/boot/efi"};
 inline const fs::path FsTabPath{"/mnt/etc/fstab"};
 
-inline const std::string EfiPartitionType {"c12a7328-f81f-11d2-ba4b-00a0c93ec93b"};
-inline const std::string EfiHex{"ef00"};
-inline const std::string LinuxRootPartitionHex {"8304"};
-
 
 // partitions, mounting, filesystems
-
 enum class PartitionStatus
 {
   None,
@@ -64,7 +62,9 @@ enum class PartitionOpts
   UnMounted
 };
 
-Partitions get_partitions(const PartitionOpts opts, const bool force = true);
+const Partitions& probe_partitions(const PartitionOpts opts);
+// get from cached results, from a previous call to probe_partitions(const PartitionsOpts&)
+const Partitions& get_partitions();
 
 std::string get_partition_fs_from_cached (const Partitions& parts, const std::string_view dev);
 int get_partition_part_number_from_cached (const Partitions& parts, const std::string_view dev);

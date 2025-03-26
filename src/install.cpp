@@ -1,6 +1,5 @@
 #include <ali/install.hpp>
 #include <ali/util.hpp>
-#include <ali/commands.hpp>
 #include <ali/widgets/widgets.hpp>
 #include <sstream>
 #include <string>
@@ -57,14 +56,14 @@ bool Install::install ()
   bool minimal = false;
   try
   {
-    minimal = exec_stage(&Install::filesystems, "filesystems");
-    // minimal = exec_stage(&Install::filesystems, "filesystems") &&
-    //           exec_stage(&Install::mount, "mount") &&
-    //           exec_stage(&Install::pacman_strap, "pacstrap") &&
-    //           exec_stage(&Install::fstab, "fstab") &&
-    //           exec_stage(&Install::root_account, "root account") &&
-    //           exec_stage(&Install::user_account, "user account") &&
-    //           exec_stage(&Install::boot_loader, "bootloader");
+    // minimal = exec_stage(&Install::filesystems, "filesystems"); 
+    minimal = exec_stage(&Install::filesystems, "filesystems") &&
+              exec_stage(&Install::mount, "mount") &&
+              exec_stage(&Install::pacman_strap, "pacstrap") &&
+              exec_stage(&Install::fstab, "fstab") &&
+              exec_stage(&Install::root_account, "root account") &&
+              exec_stage(&Install::user_account, "user account") &&
+              exec_stage(&Install::boot_loader, "bootloader");
 
     emit on_complete(minimal);
   }
@@ -93,17 +92,16 @@ bool Install::filesystems()
     return false;
   }
 
-  if (mounts.root.create_fs)
-  {
-    if (!create_filesystem(mounts.root.dev, mounts.root.fs))
-      return false;
-  }
+  if (mounts.root.create_fs && !create_filesystem(mounts.root.dev, mounts.root.fs))
+    return false;
 
-  if (mounts.boot.create_fs)
-  {
-    if (!create_filesystem(mounts.boot.dev, mounts.boot.fs))
-      return false;
-  }
+  set_partition_type<SetPartitionAsLinuxRoot>(mounts.root.dev);
+
+
+  if (mounts.boot.create_fs && !create_filesystem(mounts.boot.dev, mounts.boot.fs))
+    return false;
+
+  set_partition_type<SetPartitionAsEfi>(mounts.boot.dev);
 
   return true;
 }
@@ -115,61 +113,23 @@ bool Install::create_filesystem(const std::string_view part_dev, const std::stri
 
   log(std::format("Creating {} on {}", fs, part_dev));
 
-  const auto parts = get_partitions(PartitionOpts::UnMounted, false);
-
-  bool created{true};
-  bool root_part_type_set{false}, boot_part_type_set{false};
   int res{0};
-
-  const int part_num = get_partition_part_number_from_cached(parts, part_dev);
-  const std::string parent_dev = get_partition_parent_from_cached(parts, part_dev);
-
-  if (!part_num || parent_dev.empty())
-  {
-    log("Cannot get parent device and/or partition number, cannot set partition type. Not an error");
-  }
-
+  
   if (fs == "ext4")
   {
     CreateExt4 cmd{part_dev};
-    
-    if (res = cmd.execute() ; res != CmdSuccess)
-      created = false;
-    else
-    {
-      
-      if (part_num && !parent_dev.empty())
-      {
-        SetPartitionAsLinuxRoot type_set_cmd{part_num, parent_dev};
-        root_part_type_set = type_set_cmd.execute() == CmdSuccess;
-      }
-    }
+    res = cmd.execute();
   }
   else if (fs == "vfat")
   {
     CreateFat32 cmd{part_dev};
-    
-    if (res = cmd.execute() ; res != CmdSuccess)
-      created = false;
-    else
-    {
-      if (part_num && !parent_dev.empty())
-      {
-        SetPartitionAsEfi type_set_cmd{part_num, parent_dev};
-        boot_part_type_set = type_set_cmd.execute() == CmdSuccess;
-      }
-    }
+    res = cmd.execute();
   }
+
+  const bool created = res == CmdSuccess;
 
   if (!created)
     qCritical() << "Failed to create filesystem: " << strerror(res);
-  else
-  {
-    if (!root_part_type_set)
-      log("Could not set / as a Linux x86-64 partition type. Not an error");
-    if (!boot_part_type_set)
-      log("Could not set /boot as an EFI partition type. Does not prevent boot");
-  }
 
   qDebug() << "Leave";
 
@@ -310,9 +270,9 @@ bool Install::fstab()
   if (!ok)
     log_critical("fstab failed");
   
-  return ok;
-
   qDebug() << "Leave";
+
+  return ok;
 }
 
 
@@ -477,6 +437,7 @@ bool Install::boot_loader()
   qDebug() << "Enter";
 
   bool ok = false;
+  int r = 0;
 
   // TODO: systemd
 
@@ -485,9 +446,9 @@ bool Install::boot_loader()
     std::cout << out; 
   }};
 
-  if (install.execute() != CmdSuccess)
+  if (r = install.execute(); r != CmdSuccess)
   {
-    log_critical("ERROR: bootloader install failed");
+    log_critical(std::format("pacman install of grub and efibootmgr: {}", strerror(r)));
   }
   else
   {
@@ -498,9 +459,9 @@ bool Install::boot_loader()
       qInfo() << out;
     }};
 
-    if (grub_init.execute() != CmdSuccess)
+    if (r = grub_init.execute(); r != CmdSuccess)
     {
-      log_critical("ERROR: GRUB initialise failed");
+      log_critical(std::format("grub-install failed: {}", strerror(r)));
     }
     else
     {
@@ -509,8 +470,8 @@ bool Install::boot_loader()
         std::cout << out;
       }};
 
-      if (grub_config.execute() != CmdSuccess)
-        log_critical("ERROR: GRUB config failed");
+      if (r = grub_config.execute(); r != CmdSuccess)
+        log_critical(std::format("grub-mkconfig failed: {}", strerror(r)));
       else
         ok = true;
     }
