@@ -127,10 +127,6 @@ xfsprogs
 xl2tpd
 zsh
 ## For ali ##
-#   some of these packages have dependencies
-#   that are listed, but keep them listed
-#   for clarity.
-#   i.e. qt6-base depends on mesa
 qt6-base
 libxcb
 xcb-util-cursor
@@ -140,13 +136,13 @@ xcb-util
 xwallpaper
 xcompmgr
 hsetroot
+virtualbox-guest-utils
+openbox
+# use or lose networkmanager
+networkmanager
+#ttf-liberation
 #mesa
 #nvidia-open-dkms
 #vulkan-radeon
-virtualbox-guest-utils
-openbox
-#ttf-liberation
-networkmanager
-#network-manager-applet
 # headers required by nvidia-open-dkms 
-# linux-headers
+#linux-headers
