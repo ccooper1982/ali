@@ -140,13 +140,13 @@ xcb-util
 xwallpaper
 xcompmgr
 hsetroot
-mesa
-nvidia-open-dkms
-vulkan-radeon
+#mesa
+#nvidia-open-dkms
+#vulkan-radeon
 virtualbox-guest-utils
 openbox
-ttf-liberation
+#ttf-liberation
 networkmanager
-network-manager-applet
+#network-manager-applet
 # headers required by nvidia-open-dkms 
-linux-headers
+# linux-headers
