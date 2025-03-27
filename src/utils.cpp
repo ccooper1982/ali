@@ -13,12 +13,6 @@ Partitions PartitionUtils::m_parts;
 static const std::string EfiPartitionType {"c12a7328-f81f-11d2-ba4b-00a0c93ec93b"};
 
 
-
-
-static Partitions partitions;
-
-
-
 struct Probe
 {
   Probe(const std::string_view dev,
@@ -50,130 +44,6 @@ struct Probe
 
   blkid_probe pr{nullptr};
 };
-
-
-/*
-
-static bool is_mounted(const std::string_view path_or_dev, const bool is_dev)
-{
-  bool mounted = false;
-
-  if (auto table = mnt_new_table(); table)
-  {
-    if (mnt_table_parse_mtab(table, nullptr) == 0)
-    {
-      if (is_dev)
-        mounted = nullptr != mnt_table_find_source(table, path_or_dev.data(), MNT_ITER_FORWARD);
-      else
-        mounted = nullptr != mnt_table_find_target(table, path_or_dev.data(), MNT_ITER_FORWARD);
-    }
-
-    mnt_free_table(table);
-  }
-
-  return mounted;
-}
-
-
-static std::optional<std::reference_wrapper<const Partition>> get_partition_from_cache(const Partitions& parts, const std::string_view dev)
-{
-  const auto it = std::find_if(std::cbegin(parts), std::cend(parts), [&dev](const Partition& part)
-  {
-    return part.dev == dev;
-  });
-
-  if (it == std::cend(parts))
-    return std::nullopt;
-  else
-    return std::ref(*it);
-}
-
-
-const Partitions& probe_partitions(const PartitionOpts opts)
-{  
-  partitions.clear();
-
-  if (blkid_cache cache; blkid_get_cache(&cache, nullptr) != 0)
-    qCritical() << "could not create blkid cache";
-  else
-  {
-    if (blkid_probe_all(cache) != 0)
-      qCritical() << "blkid cache probe failed";
-    else
-    {
-      const auto dev_it = blkid_dev_iterate_begin (cache);
-
-      for (blkid_dev dev; blkid_dev_next(dev_it, &dev) == 0; )
-      {
-        const auto dev_name = blkid_dev_devname(dev);
-
-        if (opts == PartitionOpts::UnMounted && is_dev_mounted(dev_name))
-          continue;
-        
-        if (auto [status, part] = read_partition(dev_name); status == PartitionStatus::Ok)
-        {
-          qDebug() << part;
-          partitions.push_back(std::move(part));
-        }
-      }
-
-      blkid_dev_iterate_end(dev_it);
-    }
-  }
-
-  std::sort(partitions.begin(), partitions.end(), [](const Partition& a, const Partition& b)
-  {
-    return a.dev < b.dev;
-  });
-
-  return partitions;
-}
-
-
-const Partitions& get_partitions()
-{
-  return partitions;
-}
-
-
-bool is_path_mounted(const std::string_view path)
-{
-  return is_mounted(path, false);
-}
-
-
-bool is_dev_mounted(const std::string_view path)
-{
-  return is_mounted(path, true);
-}
-
-
-std::string get_partition_fs_from_cached (const Partitions& parts, const std::string_view dev)
-{
-  if (const auto opt = get_partition_from_cache(parts, dev) ; opt)
-    return opt->get().fs_type;
-  else
-    return std::string{};
-}
-
-
-std::string get_partition_parent_from_cached (const Partitions& parts, const std::string_view dev)
-{
-  if (const auto opt = get_partition_from_cache(parts, dev) ; opt)
-    return opt->get().parent_dev;
-  else
-    return std::string{};
-}
-
-
-int get_partition_part_number_from_cached (const Partitions& parts, const std::string_view dev)
-{
-  if (const auto opt = get_partition_from_cache(parts, dev) ; opt)
-    return opt->get().part_number;
-  else
-    return 0;
-}
-*/
 
 
 bool PartitionUtils::probe(const ProbeOpts opts)
@@ -368,10 +238,8 @@ bool PartitionUtils::is_mounted(const std::string_view path_or_dev, const bool i
   {
     if (mnt_table_parse_mtab(table, nullptr) == 0)
     {
-      if (is_dev)
-        mounted = nullptr != mnt_table_find_source(table, path_or_dev.data(), MNT_ITER_FORWARD);
-      else
-        mounted = nullptr != mnt_table_find_target(table, path_or_dev.data(), MNT_ITER_FORWARD);
+      mounted = is_dev ? mnt_table_find_source(table, path_or_dev.data(), MNT_ITER_FORWARD) != nullptr :
+                         mnt_table_find_target(table, path_or_dev.data(), MNT_ITER_FORWARD) != nullptr ;
     }
 
     mnt_free_table(table);

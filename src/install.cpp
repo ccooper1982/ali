@@ -8,11 +8,6 @@
 #include <QDebug>
 
 
-// The UI uses Qt which has its own types, including QString, QChar, etc. The install process
-// involves calling C functions. It's tidier to use std types, and only convert to QString
-// when calling the progress handler.
-
-
 void Install::log(const std::string_view msg)
 {
   emit on_log(QString::fromLocal8Bit(msg.data(), msg.size()));
@@ -88,20 +83,18 @@ bool Install::filesystems()
   // sanity: UI should prevent this
   if (!valid)
   {
-    qCritical("Mounts are invalid");
+    log_critical("Mounts are invalid");
     return false;
   }
+
+  set_partition_type<SetPartitionAsLinuxRoot>(mounts.root.dev);
+  set_partition_type<SetPartitionAsEfi>(mounts.boot.dev);
 
   if (mounts.root.create_fs && !create_filesystem(mounts.root.dev, mounts.root.fs))
     return false;
 
-  set_partition_type<SetPartitionAsLinuxRoot>(mounts.root.dev);
-
-
   if (mounts.boot.create_fs && !create_filesystem(mounts.boot.dev, mounts.boot.fs))
     return false;
-
-  set_partition_type<SetPartitionAsEfi>(mounts.boot.dev);
 
   return true;
 }
@@ -226,13 +219,14 @@ bool Install::pacman_strap()
   const PackageData data = Widgets::packages()->get_data();
   const auto cmd_string = create_cmd_string(data);
 
-  qInfo() << "Calling: " << cmd_string;
+  log(cmd_string);
 
   // intercept missing firmware from pacstrap
   bool firmware_warning = false;
-  Command pacstrap {cmd_string, [&firmware_warning](const std::string_view out)
+  Command pacstrap {cmd_string, [this, &firmware_warning](const std::string_view out)
   {    
     qInfo() << out;
+    log(out);
     
     if (out.find("Possibly missing firmware for module:") != std::string::npos)
       firmware_warning = true;
@@ -439,7 +433,7 @@ bool Install::boot_loader()
   bool ok = false;
   int r = 0;
 
-  // TODO: systemd
+  // TODO: systemd-boot
 
   ChRootCmd install {"pacman -Sy --noconfirm grub efibootmgr", [](const std::string_view out)
   {
@@ -454,9 +448,10 @@ bool Install::boot_loader()
   {
     const std::string cmd_init = std::format("grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB");
     
-    ChRootCmd grub_init{cmd_init, [](const std::string_view out)
+    ChRootCmd grub_init{cmd_init, [this](const std::string_view out)
     {
       qInfo() << out;
+      log(out);
     }};
 
     if (r = grub_init.execute(); r != CmdSuccess)
@@ -465,9 +460,10 @@ bool Install::boot_loader()
     }
     else
     {
-      ChRootCmd grub_config{"grub-mkconfig -o /boot/grub/grub.cfg", [](const std::string_view out)
+      ChRootCmd grub_config{"grub-mkconfig -o /boot/grub/grub.cfg", [this](const std::string_view out)
       {
-        std::cout << out;
+        qInfo() << out;
+        log(out);
       }};
 
       if (r = grub_config.execute(); r != CmdSuccess)
