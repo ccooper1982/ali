@@ -8,9 +8,6 @@
 #include <ali/common.hpp>
 
 
-// TODO this could benefit from a refresh, the functions have become
-//      like a C api
-
 inline const fs::path BootMnt{"/mnt/boot"};
 inline const fs::path RootMnt{"/mnt"};
 inline const fs::path EfiMnt{"/mnt/boot/efi"};
@@ -56,22 +53,38 @@ inline QDebug operator<<(QDebug q, const Partition& p)
 
 using Partitions = std::vector<Partition>;
 
-enum class PartitionOpts
+
+enum class ProbeOpts
 {
   All,
   UnMounted
 };
 
-const Partitions& probe_partitions(const PartitionOpts opts);
-// get from cached results, from a previous call to probe_partitions(const PartitionsOpts&)
-const Partitions& get_partitions();
 
-std::string get_partition_fs_from_cached (const Partitions& parts, const std::string_view dev);
-int get_partition_part_number_from_cached (const Partitions& parts, const std::string_view dev);
-std::string get_partition_parent_from_cached (const Partitions& parts, const std::string_view dev);
+class PartitionUtils
+{
+public:
+  // probe all block devices. clears previous probe results
+  static bool probe(const ProbeOpts opts);
+  
+  static const Partitions& partitions() { return m_parts; }
+  static std::size_t num_partitions() { return m_parts.size(); }
+  static bool have_partitions() { return !m_parts.empty(); }
 
-bool is_path_mounted(const std::string_view path);
-bool is_dev_mounted(const std::string_view path);
+  static std::string get_partition_fs (const std::string_view dev);
+  static int get_partition_part_number (const std::string_view dev);
+  static std::string get_partition_parent (const std::string_view dev);
 
+  static bool is_path_mounted(const std::string_view path);
+  static bool is_dev_mounted(const std::string_view path);
+
+private:
+  static std::tuple<PartitionStatus, Partition> read_partition(const std::string_view part_dev);
+  static std::optional<std::reference_wrapper<const Partition>> get_partition(const std::string_view dev);
+  static bool is_mounted(const std::string_view path_or_dev, const bool is_dev);
+
+private:
+  static Partitions m_parts;
+};
 
 #endif

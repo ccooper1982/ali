@@ -9,6 +9,8 @@
 #include <ali/commands.hpp>
 #include <ali/common.hpp>
 
+#include <ali/util.hpp> // TODO temp
+
 
 static const QString log_format{"%{type} - %{if-debug}%{function} - %{endif}%{message}"};
 
@@ -288,11 +290,8 @@ int main (int argc, char ** argv)
   //window.setWindowFlags(Qt::Window | Qt::WindowTitleHint | Qt::CustomizeWindowHint);
   window.setWindowFlags(Qt::Dialog);
   
-
-
   // do this ASAP
   configure_log_file(&window);
-
   
   if (QStyleFactory::keys().contains("Fusion"))
   {

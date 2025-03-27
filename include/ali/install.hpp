@@ -37,10 +37,8 @@ private:
   template<class Cmd>
   void set_partition_type(const std::string_view part_dev)
   {
-    const auto parts = get_partitions();
-  
-    const int part_num = get_partition_part_number_from_cached(parts, part_dev);
-    const std::string parent_dev = get_partition_parent_from_cached(parts, part_dev);
+    const int part_num =  PartitionUtils::get_partition_part_number(part_dev);
+    const std::string parent_dev = PartitionUtils::get_partition_parent(part_dev);
 
     if (!part_num || parent_dev.empty())
     {

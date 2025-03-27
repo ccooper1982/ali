@@ -37,7 +37,6 @@ private:
 
 private:
   SelectMounts * m_mounts_widget;
-  Partitions m_partitions;
 };
 
 

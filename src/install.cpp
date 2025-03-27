@@ -150,13 +150,13 @@ bool Install::mount()
     log_critical("Could not get the partitions paths and filesystem");
   else
   {
-    if (is_path_mounted(BootMnt.string()))
+    if (PartitionUtils::is_path_mounted(BootMnt.string()))
     {
       log(std::format("{} is already mounted, unmounting", BootMnt.c_str()));
       ::umount(BootMnt.c_str());
     }
 
-    if (is_path_mounted(RootMnt.string()))
+    if (PartitionUtils::is_path_mounted(RootMnt.string()))
     {
       log(std::format("{} is already mounted, unmounting", RootMnt.c_str()));
       ::umount(RootMnt.c_str());

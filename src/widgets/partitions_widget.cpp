@@ -40,7 +40,7 @@ static std::string format_size(const int64_t size)
 
 struct SelectMounts : public QWidget
 {
-  SelectMounts(Partitions& parts, QWidget * parent = nullptr) : QWidget(parent), m_partitions(parts)
+  SelectMounts(QWidget * parent = nullptr) : QWidget(parent)
   {
     m_summary = new QLabel;
 
@@ -107,7 +107,6 @@ struct SelectMounts : public QWidget
 
     setLayout(layout);
 
-
     connect(m_home_to_root, &QCheckBox::checkStateChanged, [this](const Qt::CheckState state)
     {
       if (state == Qt::Checked)
@@ -122,7 +121,6 @@ struct SelectMounts : public QWidget
         m_home_fs->setEnabled(true);
       }
     });
-
 
     connect(m_root_dev, &QComboBox::currentTextChanged, [this](const QString& value)
     {
@@ -163,6 +161,7 @@ struct SelectMounts : public QWidget
     update_mount_data();
   }
 
+
   void update_mount_data(const bool summary = true)
   {
     m_mounts.root.dev = m_root_dev->currentText().toStdString();
@@ -178,17 +177,18 @@ struct SelectMounts : public QWidget
     m_mounts.home.fs = m_home_fs->currentText().toStdString();
 
     if (!m_mounts.root.create_fs)
-      m_mounts.root.fs = get_partition_fs_from_cached(m_partitions, m_mounts.root.dev);
+      m_mounts.root.fs = PartitionUtils::get_partition_fs(m_mounts.root.dev);
     
     if (!m_mounts.boot.create_fs)
-      m_mounts.boot.fs = get_partition_fs_from_cached(m_partitions, m_mounts.boot.dev);
+      m_mounts.boot.fs = PartitionUtils::get_partition_fs(m_mounts.boot.dev);
 
     if (!m_mounts.home.create_fs)
-      m_mounts.home.fs = get_partition_fs_from_cached(m_partitions, m_mounts.home.dev);
+      m_mounts.home.fs = PartitionUtils::get_partition_fs(m_mounts.home.dev);
 
     if (summary)
       update_summary();
   }
+
 
   void update_summary()
   {
@@ -234,29 +234,29 @@ struct SelectMounts : public QWidget
     m_boot_dev->addItem(dev);
   }
 
+
   void add_root(const QString& dev)
   {
     m_root_dev->addItem(dev);
   }
+
 
   void add_home(const QString& dev)
   {
     m_home_dev->addItem(dev);
   }
 
+
   MountData get_data() const
   {
     return m_mounts;
   }
-
-
 
 private:
   QComboBox * m_boot_dev, * m_root_dev, * m_home_dev;
   QComboBox * m_boot_fs, * m_root_fs, * m_home_fs;
   QCheckBox * m_home_to_root;
   QLabel * m_summary; 
-  Partitions& m_partitions;
   MountData m_mounts;
   QString m_summary_text;
 };
@@ -275,11 +275,12 @@ PartitionsWidget::PartitionsWidget() : ContentWidget("Mounts")
   layout->setAlignment(Qt::AlignTop);
   layout->addWidget(new QLabel("Unmounted Partitions"));
   
-  m_partitions = probe_partitions(PartitionOpts::UnMounted);
-  m_mounts_widget = new SelectMounts(m_partitions);
+  PartitionUtils::probe(ProbeOpts::UnMounted);
+
+  m_mounts_widget = new SelectMounts;
   
 
-  auto table = new QTableWidget(m_partitions.size(), 4);
+  auto table = new QTableWidget(PartitionUtils::num_partitions(), 4);
   table->verticalHeader()->hide();
   table->setSelectionMode(QAbstractItemView::SelectionMode::SingleSelection);
   table->setSelectionBehavior(QAbstractItemView::SelectionBehavior::SelectRows);
@@ -293,13 +294,13 @@ PartitionsWidget::PartitionsWidget() : ContentWidget("Mounts")
   table->setHorizontalHeaderItem(COL_SIZE,  new QTableWidgetItem("Size"));
   
 
-  if (m_partitions.empty())
+  if (!PartitionUtils::have_partitions())
   {
     qCritical() << "No partitions found";
   }
 
   int row = 0;
-  for(const auto& part : m_partitions)
+  for(const auto& part : PartitionUtils::partitions())
   {
     const auto path = QString::fromStdString(part.dev);
 
@@ -320,14 +321,6 @@ PartitionsWidget::PartitionsWidget() : ContentWidget("Mounts")
     m_mounts_widget->add_boot(path);
     m_mounts_widget->add_home(path);
     m_mounts_widget->add_root(path);
-
-    // if (part.is_efi)
-    //   m_mounts_widget->add_boot(path);
-    // else
-    // {
-    //   m_mounts_widget->add_home(path);
-    //   m_mounts_widget->add_root(path);
-    // }
   }
 
   table->setColumnWidth(COL_DEV,200);
