@@ -14,6 +14,7 @@ struct StartWidget : public ContentWidget
   {
     std::string keymap;
     QStringList locales;
+    std::string timezone; 
   };
 
   StartWidget() ;
@@ -28,11 +29,13 @@ struct StartWidget : public ContentWidget
 private:
   bool get_keymaps();
   bool get_locales();
+  bool get_timezones();
 
 private:
-  std::vector<std::string> m_keymaps;
+  std::vector<std::string> m_keymaps; // TODO get rid
   QComboBox * m_combo_keymaps;
   QComboBox * m_combo_locales;
+  QComboBox * m_combo_tz;
 };
 
 

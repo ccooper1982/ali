@@ -111,14 +111,14 @@ private:
 
 struct TimezoneList : public Command
 {
-  TimezoneList(std::vector<std::string>& zones) ;
+  TimezoneList();
 
   void on_output(const std::string_view line);
 
-  void get_zones();
+  QStringList get_zones();
 
 private:
-  std::vector<std::string>& m_zones;  
+  QStringList m_zones;  
 };
 
 
@@ -126,7 +126,10 @@ struct KeyMaps : public Command
 {
   KeyMaps();
 
-  bool get_list(std::vector<std::string>& list);
+  QStringList get_list();
+
+private:
+  QStringList m_keys;
 };
 
 

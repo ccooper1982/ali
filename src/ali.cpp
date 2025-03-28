@@ -170,7 +170,7 @@ static std::tuple<bool, std::string> startup_checks()
   else if (!check(check_connection))
     return fail("No active internet connection");
   else if (!check(sync_system_clock))
-    return fail("Failed to call timedatectl or it failed");
+    return fail("Sync clock with timedatectl failed");
   else
     return {true, ""};
 }

@@ -265,16 +265,22 @@ bool PartitionUtils::is_dev_mounted(const std::string_view path)
 
 
 // LOCALES
+
+// these paths use RootMnt (/mnt) because they are used outside of chroot, with
+// std::filesystem and std::fstream functions
 static const fs::path LiveLocaleGenPath {"/etc/locale.gen"};
 static const fs::path InstalledLocaleGenPath {RootMnt / "etc/locale.gen"};
 static const fs::path InstalledLocaleConfPath {RootMnt / "etc/locale.conf"};
 static const fs::path InstalledVirtualConsolePath {RootMnt / "etc/vconsole.conf"};
+static const fs::path TimezonePath {"etc/localtime"};
 
-QStringList LocaleUtils::m_locales;
 std::string LocaleUtils::m_intro;
+QStringList LocaleUtils::m_locales;
+QStringList LocaleUtils::m_timezones;
+QStringList LocaleUtils::m_keymaps;
 
 
-bool LocaleUtils::read()
+bool LocaleUtils::read_locales()
 {
   if (!fs::exists(LiveLocaleGenPath))
   {
@@ -335,6 +341,24 @@ bool LocaleUtils::read()
 }
 
 
+bool LocaleUtils::read_timezones()
+{
+  // store in list, to retain order, and we can later use the '/'
+  // token in the name as a path when we create the sym link with `ln`
+  TimezoneList cmd;
+  m_timezones = cmd.get_zones();
+  return !m_timezones.empty();
+}
+
+
+bool LocaleUtils::read_keymaps()
+{
+  KeyMaps cmd; 
+  m_keymaps = cmd.get_list();
+  return !m_keymaps.empty();
+}
+
+
 bool LocaleUtils::generate_locale(const QStringList& user_locales, const QString& current)
 {
   if (write_locale_gen(user_locales))
@@ -361,7 +385,7 @@ bool LocaleUtils::generate_locale(const QStringList& user_locales, const QString
 
 bool LocaleUtils::write_locale_gen(const QStringList& user_locales)
 {
-  // write out the description from the original file,
+  // write out the intro from the live file,
   // the locales selected, then the original commented locales
 
   bool set{true};
@@ -398,10 +422,8 @@ bool LocaleUtils::generate_keymap(const std::string& keys)
   {
     try
     {
-      {
-        std::ofstream stream{InstalledVirtualConsolePath};
-        stream << "KEYMAP=" << keys;
-      }
+      std::ofstream stream{InstalledVirtualConsolePath};
+      stream << "KEYMAP=" << keys << '\n';
 
       set = true;
     }
@@ -412,4 +434,17 @@ bool LocaleUtils::generate_keymap(const std::string& keys)
   }
   
   return set;
+}
+
+
+bool LocaleUtils::generate_timezone(const std::string& zone)
+{
+  ChRootCmd set_cmd{std::format("ln -sf /usr/share/zoneinfo/{} {}", zone, TimezonePath.string())};
+  if (set_cmd.execute() == CmdSuccess)
+  {
+    ChRootCmd set_hw_clock{"hwclock --systohc"};
+    return set_hw_clock.execute() == CmdSuccess;
+  }
+
+  return false;
 }

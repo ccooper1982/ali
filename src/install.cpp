@@ -45,7 +45,6 @@ bool Install::install ()
   // minimal: mount, pacman_strap, fstab, bootloader
   //          required for bootable system, even if in < ideal state.
 
-  // locale(timezone, locale.conf, keymap for vconsole, clock sync)
   // network conf
   
   bool minimal = false;
@@ -87,7 +86,10 @@ bool Install::filesystems()
     return false;
   }
 
+  log("Setting root partition type");
   set_partition_type<SetPartitionAsLinuxRoot>(mounts.root.dev);
+  
+  log("Setting boot partition type");
   set_partition_type<SetPartitionAsEfi>(mounts.boot.dev);
 
   if (mounts.root.create_fs && !create_filesystem(mounts.root.dev, mounts.root.fs))
@@ -289,6 +291,12 @@ bool Install::localise()
   if (!LocaleUtils::generate_locale(locale_data.locales, locale_data.locales[0]))
   {
     log_critical("Generating/setting locales failed");
+  }
+
+  log("Setting timezone");
+  if (!LocaleUtils::generate_timezone(locale_data.timezone))
+  {
+    log_critical("Setting timezone failed");
   }
 
   // locale not considered essential, more of an annoyance if it fails

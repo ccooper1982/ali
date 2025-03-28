@@ -59,8 +59,8 @@ struct LogWidget : public QPlainTextEdit
     setReadOnly(true);
     setOverwriteMode(false);
     setWordWrapMode(QTextOption::WrapMode::NoWrap);
-    setMinimumHeight(400);
-    setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
+    setFixedHeight(450);
+    setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Fixed);
     setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
   }
@@ -92,7 +92,6 @@ InstallWidget::InstallWidget() : ContentWidget("Install")
   install_icon_layout->addWidget(m_btn_install, 0, Qt::AlignHCenter);
 
   m_log_widget = new LogWidget;
-  m_log_widget->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Maximum);
   
   layout->addWidget(m_lbl_waffle);
   layout->addLayout(install_icon_layout);

@@ -153,7 +153,7 @@ bool PlatformSize::platform_file_exist() const
 }
 
 
-//
+// CPU vendor
 CpuVendor::CpuVendor() :
   Command("cat /proc/cpuinfo | grep \"^model name\"", std::bind_front(&CpuVendor::on_output, std::ref(*this)))
 {
@@ -174,24 +174,26 @@ CpuVendor::Vendor CpuVendor::get_vendor ()
 }
 
 
-//
-TimezoneList::TimezoneList(std::vector<std::string>& zones) :
-  Command("timedatectl list-timezones", std::bind_front(&TimezoneList::on_output, std::ref(*this))),
-  m_zones(zones)
+// Timezones
+TimezoneList::TimezoneList() : Command("timedatectl list-timezones")
 {
-  m_zones.reserve(600); // "timedatectl list-timezones | wc -l" returns 597
+  
 }
 
-void TimezoneList::on_output(const std::string_view line)
-{
-  if (!line.empty())
-    m_zones.emplace_back(line);
-}
-
-void TimezoneList::get_zones()
+QStringList TimezoneList::get_zones()
 {
   if (m_zones.empty())
-    execute();
+  {
+    m_zones.reserve(600); // "timedatectl list-timezones | wc -l" returns 598
+
+    execute([this](const std::string_view m)
+    {
+      if (!m.empty())
+        m_zones.emplace_back(QString::fromLocal8Bit(m.data(), m.size()));
+    });
+  }
+
+  return m_zones;
 }
 
 
@@ -201,14 +203,20 @@ KeyMaps::KeyMaps() : Command("localectl list-keymaps")
 
 }
 
-bool KeyMaps::get_list(std::vector<std::string>& list)
+QStringList KeyMaps::get_list()
 {
-  const int res = execute([&list](const std::string_view m)
+  if (m_keys.empty())
   {
-    if (!m.empty())
-      list.emplace_back(m);
-  });
-  return res == CmdSuccess;
+    m_keys.reserve(250);
+
+    execute([this](const std::string_view m)
+    {
+      if (!m.empty())
+        m_keys.emplace_back(QString::fromLocal8Bit(m.data(), m.size()));
+    });
+  }
+  
+  return m_keys;
 }
 
 
