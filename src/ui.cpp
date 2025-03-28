@@ -106,17 +106,6 @@ bool check_platform_size ()
 }
 
 
-bool get_keymap (std::vector<std::string>& keys)
-{
-  // NOTE: this command is ran by the StartWidget, can probably remove it from here
-  std::vector<std::string> list;
-
-  KeyMaps cmd;
-  cmd.get_list(list);
-  return !list.empty();
-}
-
-
 bool check_cpu_vendor ()
 {
   CpuVendor cmd;
@@ -162,13 +151,10 @@ bool sync_system_clock()
 
 static std::tuple<bool, std::string> startup_checks()
 {
-  // auto check = []<typename F, typename... Args>(F f, Args... args)  -> bool
-  //   requires (std::same_as<bool, std::invoke_result_t<Args...>>)
-  // {
-  //   return f(std::forward<Args>(args)...);
-  // };
-
-  auto fail = [](const std::string_view err = ""){ return std::make_tuple(false, std::string{err}); };
+  auto fail = [](const std::string_view err = "")
+  {
+    return std::make_tuple(false, std::string{err});
+  };
 
   auto check = []<typename F>(F f) -> bool requires (std::same_as<bool, std::invoke_result_t<F>>)
   {
@@ -287,7 +273,6 @@ int main (int argc, char ** argv)
   window.setWindowTitle("ali");
   window.setFixedSize(800,600); // TODO may be unsuitable
   window.setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-  //window.setWindowFlags(Qt::Window | Qt::WindowTitleHint | Qt::CustomizeWindowHint);
   window.setWindowFlags(Qt::Dialog);
   
   // do this ASAP
