@@ -138,9 +138,9 @@ xcompmgr
 hsetroot
 virtualbox-guest-utils
 openbox
+ttf-liberation
 # use or lose networkmanager
 networkmanager
-#ttf-liberation
 #mesa
 #nvidia-open-dkms
 #vulkan-radeon
