@@ -37,7 +37,7 @@ sources = [
     'src/widgets/install_widget.cpp',
     'src/widgets/start_widget.cpp',
     'src/widgets/widgets.cpp',    
-    'src/ui.cpp'
+    'src/ali.cpp'
     ]
 
 includes = include_directories('include')
