@@ -15,6 +15,7 @@ struct PackageData
   QSet<QString> required; 
   QSet<QString> kernels;
   QSet<QString> firmware;
+  QSet<QString> recommended;
 };
 
 struct PackagesWidget : public ContentWidget
@@ -31,6 +32,7 @@ private:
   SelectPackagesWidget * m_required;
   SelectPackagesWidget * m_kernels;
   SelectPackagesWidget * m_firmware;
+  SelectPackagesWidget * m_recommended;
 };
 
 

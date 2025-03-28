@@ -104,6 +104,7 @@ struct SelectMounts : public QWidget
     layout->addLayout(mounts_layout);
     layout->addSpacing(50);
     layout->addWidget(m_summary, 0, Qt::AlignCenter);
+    layout->addStretch(1);
 
     setLayout(layout);
 
@@ -330,7 +331,7 @@ PartitionsWidget::PartitionsWidget() : ContentWidget("Mounts")
   table->resizeRowsToContents();
 
   layout->addWidget(table);
-  layout->addWidget(m_mounts_widget);
+  layout->addWidget(m_mounts_widget);  
 }
 
 

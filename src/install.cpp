@@ -211,6 +211,7 @@ bool Install::pacman_strap()
     append(data.required);
     append(data.kernels);
     append(data.firmware);
+    append(data.recommended);
 
     return cmd_string.str();
   };

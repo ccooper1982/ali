@@ -14,7 +14,7 @@
 
 
 struct SelectPackagesWidget : public QWidget
-{
+{  
   enum class Options { All, One, None };
 
   static SelectPackagesWidget * all_required(const QStringList& names)
@@ -32,7 +32,20 @@ struct SelectPackagesWidget : public QWidget
     return new SelectPackagesWidget(names, Options::None, -1);
   }
 
-  
+  static SelectPackagesWidget * none_required(const QMap<QString, bool>& names)
+  {
+    auto * widget = new SelectPackagesWidget(names.keys(), Options::None, -1);
+
+    for (const auto& package : names.keys(true))
+    {
+      if (auto * btn = widget->findChild<QCheckBox*>(package); btn)
+        btn->setChecked(true);
+    }
+
+    return widget;
+  }
+
+
   SelectPackagesWidget(const QStringList& names, const Options opt, const qsizetype req_index)
   {
     auto selected = [this](const bool checked, const QString& val)
@@ -47,7 +60,7 @@ struct SelectPackagesWidget : public QWidget
     
     m_buttons = new QButtonGroup{this};
 
-    // ButtonGroup exclusive by default, so set false before adding buttons
+    // ButtonGroup is exclusive by default, so set false before adding buttons
     // otherwise only one will be checked
     if (opt != Options::One)
       m_buttons->setExclusive(false);
@@ -57,6 +70,7 @@ struct SelectPackagesWidget : public QWidget
     for (const auto& name : names)
     {
       QCheckBox * chk = new QCheckBox(name);
+      chk->setObjectName(name);
       m_buttons->addButton(chk);
 
       chk->connect(chk, &QCheckBox::checkStateChanged, this, [this, chk, selected](const Qt::CheckState state)
@@ -78,19 +92,24 @@ struct SelectPackagesWidget : public QWidget
     setLayout(layout);
   }
 
+  
   const QSet<QString>& get_selected() const 
   {
     return m_selected;
   }
 
-  void disable_box (const QString& name)
+  
+  void select (const QStringList& packages)
   {
-    for(auto btn : m_buttons->buttons())
+    for (const auto& package : packages)
     {
-      if (btn->text() == name)
-        btn->setDisabled(true);
+      if (auto * btn = m_buttons->findChild<QCheckBox*>(package); btn)
+        btn->setChecked(true);
     }
   }
+
+private:
+
 
 private:
   QSet<QString> m_selected;
@@ -136,6 +155,15 @@ PackagesWidget::PackagesWidget() : ContentWidget("Packages")
 
     layout->addWidget(group_firmware);
   }
+
+  {
+    m_recommended = SelectPackagesWidget::none_required({ {"sudo",true}, {"nano",true}, {"bluez",false}});
+    
+    QGroupBox * group_recommended = new QGroupBox("Recommended");
+    group_recommended->setLayout(m_recommended->layout());    
+
+    layout->addWidget(group_recommended);
+  }
   
   setLayout(layout);
 }
@@ -151,8 +179,8 @@ bool PackagesWidget::is_valid()
 
 PackageData PackagesWidget::get_data()
 {
-  // caller of this only deals with std types
   return PackageData {.required = m_required->get_selected(),
                       .kernels = m_kernels->get_selected(),
-                      .firmware = m_firmware->get_selected()};
+                      .firmware = m_firmware->get_selected(),
+                      .recommended = m_recommended->get_selected()};
 }
