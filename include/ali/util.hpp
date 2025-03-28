@@ -3,7 +3,7 @@
 
 #include <vector>
 #include <string_view>
-#include <iostream>
+#include <fstream>
 #include <QDebug>
 #include <ali/common.hpp>
 
@@ -85,6 +85,39 @@ private:
 
 private:
   static Partitions m_parts;
+};
+
+
+/// Locality consists of:
+///   1. Locales (language, charset) governing text, monetary, time/dates, etc
+///   2. Keyboard mapping 
+///
+///   Locales:
+///     - Available locales in `/etc/locale.gen`
+///     - In live ISO, they are all commented out
+///     - Required locales are uncommented, then `locale-gen` is called
+///     - Finally set the active/current locale in `locale.conf`
+///   
+///   Keyboard:
+///     - List of available keys from `localectl list-keymaps`
+///     - Then then set with `loadkeys`
+///     - Then set virtual console keymap in `/etc/vconsole.conf`
+///   
+class LocaleUtils
+{
+public:
+  static bool read();
+  static const QStringList& get() { return m_locales; }
+
+  static bool generate_locale(const QStringList& user_locales, const QString& current);
+  static bool generate_keymap(const std::string& keys);
+  
+private:
+  static bool write_locale_gen(const QStringList& user_locales);
+
+private:
+  static QStringList m_locales;
+  static std::string m_intro;
 };
 
 #endif

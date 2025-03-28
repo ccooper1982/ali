@@ -90,6 +90,7 @@
     "qvboxlayout": "cpp",
     "qfilesystemwatcher": "cpp",
     "filesystem": "cpp",
-    "qdebug": "cpp"
+    "qdebug": "cpp",
+    "qlabel": "cpp"
   }
 }

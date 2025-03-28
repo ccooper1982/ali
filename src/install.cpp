@@ -51,11 +51,11 @@ bool Install::install ()
   bool minimal = false;
   try
   {
-    // minimal = exec_stage(&Install::filesystems, "filesystems"); 
     minimal = exec_stage(&Install::filesystems, "filesystems") &&
               exec_stage(&Install::mount, "mount") &&
               exec_stage(&Install::pacman_strap, "pacstrap") &&
               exec_stage(&Install::fstab, "fstab") &&
+              exec_stage(&Install::localise, "locale") &&
               exec_stage(&Install::root_account, "root account") &&
               exec_stage(&Install::user_account, "user account") &&
               exec_stage(&Install::boot_loader, "bootloader");
@@ -189,7 +189,7 @@ bool Install::do_mount(const std::string_view dev, const std::string_view path, 
 }
 
 
-// pacman
+// pacstrap
 bool Install::pacman_strap()
 {
   qDebug() << "Enter";
@@ -251,6 +251,8 @@ bool Install::pacman_strap()
 }
 
 
+// -- Everything below here is within chroot --
+
 // fstab
 bool Install::fstab()
 {
@@ -268,6 +270,29 @@ bool Install::fstab()
   qDebug() << "Leave";
 
   return ok;
+}
+
+
+// locale
+bool Install::localise()
+{
+  const auto locale_data = Widgets::start()->get_data();
+
+  log(std::format("Setting keymap {}", locale_data.keymap));
+  if (!LocaleUtils::generate_keymap(locale_data.keymap))
+  {
+    log_critical("Setting key map failed"); // not actually critital, but no "log_error()" yet
+  }
+
+
+  log("Generating locales");
+  if (!LocaleUtils::generate_locale(locale_data.locales, locale_data.locales[0]))
+  {
+    log_critical("Generating/setting locales failed");
+  }
+
+  // locale not considered essential, more of an annoyance if it fails
+  return true; 
 }
 
 
@@ -436,9 +461,10 @@ bool Install::boot_loader()
 
   // TODO: systemd-boot
 
-  ChRootCmd install {"pacman -Sy --noconfirm grub efibootmgr", [](const std::string_view out)
+  ChRootCmd install {"pacman -Sy --noconfirm grub efibootmgr", [this](const std::string_view out)
   {
-    std::cout << out; 
+    qInfo() << out;
+    log(out);
   }};
 
   if (r = install.execute(); r != CmdSuccess)
@@ -479,8 +505,3 @@ bool Install::boot_loader()
   return ok;
 }
 
-
-bool Install::localise()
-{
-  return false;
-}

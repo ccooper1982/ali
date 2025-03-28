@@ -1,6 +1,7 @@
 #include <ali/widgets/start_widget.hpp>
 #include <ali/commands.hpp>
 
+
 static const QString intro = R"!(
 # Arch Linux Install
 
@@ -34,17 +35,24 @@ StartWidget::StartWidget() : ContentWidget("Start")
   m_combo_keymaps = new QComboBox;
   m_combo_keymaps->setMaximumWidth(200);
 
-  m_combo_country = new QComboBox;
-  m_combo_country->setMaximumWidth(200);
+  m_combo_locales = new QComboBox;
+  m_combo_locales->setMaximumWidth(200);
 
   settings_layout->addRow("Keyboard", m_combo_keymaps);
-  settings_layout->addRow("Country", m_combo_country);
+  settings_layout->addRow("Locale", m_combo_locales);
   
-  if (!keymaps())
+  if (!get_keymaps())
   {
     QMessageBox::warning(this, "Keymaps", "Could not get keymaps");
     m_combo_keymaps->addItem("US");
     m_combo_keymaps->setEnabled(false);
+  }
+
+  if (!get_locales())
+  {
+    QMessageBox::warning(this, "Locales", "Could not get locales");
+    m_combo_locales->addItem("en_US.UTF-8");
+    m_combo_locales->setEnabled(false);
   }
 
 
@@ -56,12 +64,13 @@ StartWidget::StartWidget() : ContentWidget("Start")
 }
 
 
-bool StartWidget::keymaps()
+bool StartWidget::get_keymaps()
 {
   if (KeyMaps cmd; cmd.get_list(m_keymaps))
   {
     for (const auto& name : m_keymaps)
       m_combo_keymaps->addItem(QString::fromStdString(name));
+    
     return true;
   }
   else
@@ -72,7 +81,19 @@ bool StartWidget::keymaps()
 }
 
 
-bool StartWidget::language()
+bool StartWidget::get_locales()
 {
-  return false; 
+  if (!LocaleUtils::read())
+    return false;
+  
+  m_combo_locales->addItems(LocaleUtils::get());
+  return true;
+}
+
+
+StartWidget::Locale StartWidget::get_data()
+{
+  return Locale { .keymap = m_combo_keymaps->currentText().toStdString(),
+                  .locales = QStringList{m_combo_locales->currentText()}
+                };
 }

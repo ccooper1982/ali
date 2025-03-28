@@ -41,7 +41,7 @@ private:
 };
 
 
-// Runs a single command via arch-chroot.
+// Runs a single command as arch-chroot.
 struct ChRootCmd : public Command
 {
   ChRootCmd(const std::string_view cmd) :
@@ -136,6 +136,7 @@ struct SysClockSync : public Command
 };
 
 
+
 // Create filesystem
 template<class FS>
 struct CreateFilesystem : public Command
@@ -163,26 +164,7 @@ using CreateExt4 = CreateFilesystem<Ext4>;
 using CreateFat32 = CreateFilesystem<Fat32>;
 
 
-// Set partition type
-// struct SetPartitionAsEfi : public Command
-// {
-//   SetPartitionAsEfi(const int part_num, const std::string_view parent_dev)
-//     : Command(std::format("sgdisk -t{}:{} {}", part_num, EfiHex, parent_dev))
-//   {
-//     qDebug() << std::format("sgdisk -t{}:{} {}", part_num, EfiHex, parent_dev);
-//   }
-// };
-
-// struct SetPartitionAsLinuxRoot : public Command
-// {
-//   SetPartitionAsLinuxRoot(const int part_num, const std::string_view parent_dev)
-//     : Command(std::format("sgdisk -t{}:{} {}", part_num, LinuxRootPartitionHex, parent_dev))
-//   {
-//     qDebug() << std::format("sgdisk -t{}:{} {}", part_num, LinuxRootPartitionHex, parent_dev);
-//   }
-// };
-
-
+// set partition type
 template<class T>
 struct SetPartitionType : public Command
 {
