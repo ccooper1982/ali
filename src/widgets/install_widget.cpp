@@ -5,8 +5,6 @@
 static const QString waffle_preinstall = R"!(
 ### Install
 - A log file is created in `/var/log/ali/install.log`
-- The log below only shows minimal information
-- There is no progress indicator, this may take a few minutes
 
 ---
 
