@@ -1,5 +1,4 @@
 #include <ali/widgets/partitions_widget.hpp>
-#include <ali/util.hpp>
 #include <QVBoxLayout>
 #include <QFormLayout>
 #include <QComboBox>

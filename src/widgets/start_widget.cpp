@@ -1,5 +1,6 @@
 #include <ali/widgets/start_widget.hpp>
 #include <ali/commands.hpp>
+#include <ali/locale_utils.hpp>
 
 
 static const QString intro = R"!(

@@ -1,5 +1,6 @@
 #include <ali/install.hpp>
-#include <ali/util.hpp>
+#include <ali/disk_utils.hpp>
+#include <ali/locale_utils.hpp>
 #include <ali/widgets/widgets.hpp>
 #include <sstream>
 #include <string>

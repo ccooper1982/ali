@@ -9,8 +9,6 @@
 #include <ali/commands.hpp>
 #include <ali/common.hpp>
 
-#include <ali/util.hpp> // TODO temp
-
 
 static const QString log_format{"%{type} - %{if-debug}%{function} - %{endif}%{message}"};
 

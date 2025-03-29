@@ -30,7 +30,8 @@ qt6_dep = dependency('qt6', required: true, modules: ['Core', 'Gui', 'Widgets'])
 sources = [
     'src/install.cpp',
     'src/commands.cpp',
-    'src/utils.cpp',
+    'src/disk_utils.cpp',
+    'src/locale_utils.cpp',
     'src/widgets/partitions_widget.cpp',
     'src/widgets/accounts_widget.cpp',
     'src/widgets/packages_widget.cpp',
