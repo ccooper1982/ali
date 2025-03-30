@@ -26,12 +26,12 @@ struct NetworkWidget : public ContentWidget
     m_ntp = new QCheckBox();
     m_ntp->setChecked(true);
 
-    m_copy_config = new QCheckBox("Use the current network config on the installed system.");
+    m_copy_config = new QCheckBox("Copy the iwd config to the installed system.");
     m_copy_config->setChecked(true);
 
     layout->addRow("Hostname", m_hostname);
     layout->addRow("NTP", m_ntp);
-    layout->addRow("Copy Config", m_copy_config);
+    layout->addRow("Copy Wi-Fi Config", m_copy_config);
 
     setLayout(layout);
   }

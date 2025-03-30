@@ -128,7 +128,7 @@ PackagesWidget::PackagesWidget() : ContentWidget("Packages")
   const QString cpu_ucode = cpu_vendor == CpuVendor::Vendor::Amd ? "amd-ucode" : "intel-ucode";
 
   {
-    m_required = SelectPackagesWidget::all_required({"base", cpu_ucode});
+    m_required = SelectPackagesWidget::all_required({"base", cpu_ucode, "sudo"});
     
     QGroupBox * group_required = new QGroupBox("Required");
     group_required->setLayout(m_required->layout());    
@@ -157,7 +157,7 @@ PackagesWidget::PackagesWidget() : ContentWidget("Packages")
   }
 
   {
-    m_recommended = SelectPackagesWidget::none_required({ {"sudo",true}, {"nano",true}, {"bluez",false}});
+    m_recommended = SelectPackagesWidget::none_required({{"nano",true}, {"git",false}});
     
     QGroupBox * group_recommended = new QGroupBox("Recommended");
     group_recommended->setLayout(m_recommended->layout());    

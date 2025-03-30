@@ -269,7 +269,7 @@ int main (int argc, char ** argv)
 
   QMainWindow window;
   window.setWindowTitle("ali");
-  window.setFixedSize(800,600); // TODO may be unsuitable
+  window.setFixedSize(1024,768);
   window.setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
   window.setWindowFlags(Qt::Dialog);
   

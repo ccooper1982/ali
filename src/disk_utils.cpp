@@ -5,11 +5,11 @@
 #include <sys/mount.h>
 #include <blkid/blkid.h>
 #include <libmount/libmount.h>
-#include <QDebug>
 #include <fstream>
+#include <set>
+#include <QDebug>
 
 
-// PARTITIONS
 Partitions PartitionUtils::m_parts;
 
 static const std::string EfiPartitionType {"c12a7328-f81f-11d2-ba4b-00a0c93ec93b"};
@@ -52,33 +52,37 @@ bool PartitionUtils::probe(const ProbeOpts opts)
 {
   qDebug() << "Enter";
 
-  m_parts.clear();
+  const auto tree = create_tree();
 
-  if (blkid_cache cache; blkid_get_cache(&cache, nullptr) != 0)
-    qCritical() << "could not create blkid cache";
-  else
+  // for each disk, if partition table is GPT, read partition
+  for(const auto& [disk, parts] : tree)
   {
-    if (blkid_probe_all(cache) != 0)
-      qCritical() << "blkid cache probe failed";
-    else
+    qDebug() << "Disk: " << disk;
+
+    if (Probe probe{disk}; probe.valid())
     {
-      const auto dev_it = blkid_dev_iterate_begin (cache);
-
-      for (blkid_dev dev; blkid_dev_next(dev_it, &dev) == 0; )
+      if (auto ls = blkid_probe_get_partitions(probe.pr); ls)
       {
-        const auto dev_name = blkid_dev_devname(dev);
+        const auto part_table = blkid_partlist_get_table(ls);
+        const char * part_table_type =  blkid_parttable_get_type(part_table);
 
-        if (opts == ProbeOpts::UnMounted && is_dev_mounted(dev_name))
+        if (!part_table_type || std::string_view{part_table_type} != "gpt")
           continue;
-        
-        if (auto [status, part] = read_partition(dev_name); status == PartitionStatus::Ok)
+
+        for (const auto& part_dev : parts)
         {
-          qDebug() << part;
-          m_parts.push_back(std::move(part));
+          if (opts == ProbeOpts::UnMounted && is_dev_mounted(part_dev))
+            continue;
+
+          if (auto [status, part_info] = probe_partition(part_dev); status == PartitionStatus::Ok)
+          {
+            part_info.parent_dev = disk;
+            qInfo() << part_info;
+
+            m_parts.push_back(std::move(part_info));
+          }
         }
       }
-
-      blkid_dev_iterate_end(dev_it);
     }
   }
 
@@ -88,12 +92,69 @@ bool PartitionUtils::probe(const ProbeOpts opts)
   });
 
   qDebug() << "Leave";
-
   return true;
 }
 
 
-std::tuple<PartitionStatus, Partition> PartitionUtils::read_partition(const std::string_view part_dev)
+PartitionUtils::Tree PartitionUtils::create_tree()
+{
+  Tree tree;
+
+  auto add_tree = [&tree](const std::string& dev) 
+  {
+    if (Probe probe {dev}; probe.valid())
+    {
+      if (blkid_probe_is_wholedisk(probe.pr))
+      {
+        if (!tree.contains(dev))
+          tree.emplace(dev, std::vector<std::string>{});
+      }
+      else
+      {
+        // dev is a partition, so gets its parent device (disk) and associate in tree
+        const dev_t disk_no = blkid_probe_get_wholedisk_devno(probe.pr);
+        if (const char * disk_name = blkid_devno_to_devname(disk_no); disk_name)
+        {
+          if (!tree.contains(disk_name))          
+            tree.emplace(disk_name, std::vector<std::string>{});
+        
+          tree[disk_name].emplace_back(dev);
+        }
+      }
+    }
+  };
+
+
+  if (blkid_cache cache; blkid_get_cache(&cache, nullptr) != 0)
+  {
+    qCritical() << "could not create blkid cache";
+  }
+  else
+  {
+    if (blkid_probe_all(cache) != 0)
+    {
+      qCritical() << "blkid cache probe failed";
+    }
+    else
+    {
+      // iterate block devices: this can return partitions or disks
+      const auto dev_it = blkid_dev_iterate_begin (cache);
+
+      for (blkid_dev dev ; blkid_dev_next(dev_it, &dev) == 0 ;)
+      { 
+        const auto dev_name = blkid_dev_devname(dev);
+        add_tree(dev_name);
+      }
+
+      blkid_dev_iterate_end(dev_it);
+    }
+  }
+
+  return tree;
+}
+
+
+std::tuple<PartitionStatus, Partition> PartitionUtils::probe_partition(const std::string_view part_dev)
 {
   static const unsigned SectorsPerPartSize = 512;
 
@@ -124,7 +185,8 @@ std::tuple<PartitionStatus, Partition> PartitionUtils::read_partition(const std:
     {
       const char * pt_type {nullptr};
       blkid_probe_lookup_value(pr, "PTTYPE", &pt_type, nullptr);
-      qCritical() << "pt_type: " << pt_type;
+      qCritical() << "pttype=" << pt_type;
+      partition.is_gpt = (strcmp(pt_type, "gpt") == 0);
     }
 
     if (blkid_probe_has_value(pr, "TYPE"))
@@ -171,17 +233,16 @@ std::tuple<PartitionStatus, Partition> PartitionUtils::read_partition(const std:
       }
     }
 
-    if (dev_t blk_dev_num = blkid_probe_get_wholedisk_devno(pr); !blk_dev_num)
-      qCritical() << "Could not parent device for partition: " << part_dev;
-    else
-    {
-      if (char * name = blkid_devno_to_devname(blk_dev_num); name)
-      {
-        qCritical() << "devno_to_devname: " << name;
-        partition.parent_dev = name;
-        ::free(name);
-      }
-    }
+    // if (dev_t blk_dev_num = blkid_probe_get_wholedisk_devno(pr); !blk_dev_num)
+    //   qCritical() << "Could not parent device for partition: " << part_dev;
+    // else
+    // {
+    //   if (char * name = blkid_devno_to_devname(blk_dev_num); name)
+    //   {
+    //     partition.parent_dev = name;
+    //     ::free(name);
+    //   }
+    // }
 
     if (status == PartitionStatus::None)
       return {PartitionStatus::Ok, partition};

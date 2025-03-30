@@ -2,6 +2,7 @@
 #define ALI_DISKUTILS_H
 
 #include <vector>
+#include <string>
 #include <string_view>
 #include <fstream>
 #include <QDebug>
@@ -36,18 +37,21 @@ struct Partition
   int part_number{0};     // partition number
   bool is_efi{false};     // if part type UUID is for EFI
   bool is_fat32{false};   // if fs_type is VFAT and version is FAT32
+  bool is_gpt{false};     // if partition table is GPT
 };
 
 
 inline QDebug operator<<(QDebug q, const Partition& p)
 {
-  q << p.dev << '\n';
+  q << "\nPartition: " << p.dev << '\n';
+  q << '\t' << "Parent: " << p.parent_dev << '\n';
   q << '\t' << "Filesystem: " << p.fs_type << '\n';
-  q << '\t' << "Size: " << p.size << '\n';
+  q << '\t' << "Size: " << p.size << '\n';  
   q << '\t' << "Part Type UUID: " << p.type_uuid << '\n';
   q << '\t' << "Part Num: " << p.part_number << '\n';
   q << '\t' << "EFI: " << p.is_efi << '\n';
   q << '\t' << "FAT32: " << p.is_fat32 << '\n';
+  q << '\t' << "GPT: " << p.is_gpt ;
   return q;
 }
 
@@ -64,7 +68,8 @@ enum class ProbeOpts
 class PartitionUtils
 {
 public:
-  // probe all block devices. clears previous probe results
+  // probe all block devices. clears previous probe results.
+  // store partition, retrieved by partitions().
   static bool probe(const ProbeOpts opts);
   
   static const Partitions& partitions() { return m_parts; }
@@ -79,8 +84,13 @@ public:
   static bool is_dev_mounted(const std::string_view path);
 
 private:
-  static std::tuple<PartitionStatus, Partition> read_partition(const std::string_view part_dev);
+  using Tree = std::map<std::string, std::vector<std::string>>;
+
+  static Tree create_tree();
+
+  static std::tuple<PartitionStatus, Partition> probe_partition(const std::string_view part_dev);
   static std::optional<std::reference_wrapper<const Partition>> get_partition(const std::string_view dev);
+  
   static bool is_mounted(const std::string_view path_or_dev, const bool is_dev);
 
 private:

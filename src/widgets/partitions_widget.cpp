@@ -7,6 +7,52 @@
 #include <QTableWidgetItem>
 
 
+static const QString waffle_title_have_parts = R"!(## Partitions
+This table only shows partitions that are within a **GPT**
+and **not mounted**.
+
+If your partitions are not showing, return to the terminal:
+- `lsblk -o PTTYPE,MOUNTPOINT <device>`
+
+
+To keep an existing filesystem, leave the "Create Filesystem" option
+blank, otherwise set the desired filesystem.
+
+
+`/boot`
+- Must be `FAT32`. Created filesystem is always FAT32 
+- Recommended size: 512MB - 1GB
+)!";
+
+static const QString waffle_title_no_parts = R"!( ## Partitions
+No eligible partitions found:
+- Device must have a GPT (partition table)
+- Partition must **not** be mounted
+
+<br/>
+
+Return to the terminal, then:
+- `lsblk -o PATH,PTTYPE,MOUNTPOINT <device>`
+
+<br/>
+
+PTTYPE must be `gpt` and MOUNTPOINT empty.
+
+- If required, unmount with: `umount <mount_point>`
+- Remove all partition tables: `wipefs -a -f <dev>`
+  - Take care: assume data is unrecoverable
+- Create GPT:
+  - `fdisk <dev>`
+  - Enter `g`, press enter, then `w` and press Enter
+
+<br/>
+
+Then use `fdisk <dev>` or `cfdisk <dev>` to create partitions as required.
+- Boot partition should be at least 512MB
+- Root partition should be at least 8GB (minimal) or 16GB (desktop)
+)!";
+
+
 static const QStringList SupportedRootFs = 
 {
   "ext4"
@@ -49,6 +95,10 @@ struct SelectMounts : public QWidget
 
     QFormLayout * mounts_layout = new QFormLayout;
 
+    auto header_layout = new QHBoxLayout;
+    header_layout->addWidget(new QLabel("Partition"), 0, Qt::AlignCenter);
+    header_layout->addWidget(new QLabel("Create Filesystem"), 0, Qt::AlignCenter);
+    
     // root
     m_root_dev = new QComboBox;
     m_root_dev->setMaximumWidth(200);
@@ -95,6 +145,7 @@ struct SelectMounts : public QWidget
     m_summary->setMinimumWidth(400);
     m_summary->setAlignment(Qt::AlignHCenter | Qt::AlignCenter);
 
+    mounts_layout->addRow("Mount", header_layout);
     mounts_layout->addRow("/", root_layout);
     mounts_layout->addRow("/boot", boot_layout);
     mounts_layout->addRow("/home", home_layout);
@@ -264,21 +315,43 @@ private:
 
 PartitionsWidget::PartitionsWidget() : ContentWidget("Mounts")
 {
+  QVBoxLayout * layout = new QVBoxLayout;
+  setLayout(layout);
+  
+  QLabel * lbl_title = new QLabel;
+  lbl_title->setTextFormat(Qt::MarkdownText);
+  lbl_title->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
+  lbl_title->setWordWrap(true);
+  
+  layout->setAlignment(Qt::AlignTop);
+  layout->addWidget(lbl_title);
+    
+  PartitionUtils::probe(ProbeOpts::UnMounted);
+
+  if (PartitionUtils::have_partitions())
+  { 
+    lbl_title->setText(waffle_title_have_parts);
+
+    m_mounts_widget = new SelectMounts;
+
+    layout->addWidget(create_table());
+    layout->addWidget(m_mounts_widget);    
+  }
+  else
+  {
+    lbl_title->setText(waffle_title_no_parts);
+  }
+
+  layout->addStretch(1);
+}
+
+
+QTableWidget * PartitionsWidget::create_table()
+{
   static const int COL_DEV  = 0;
   static const int COL_FS   = 1;
   static const int COL_EFI  = 2;
   static const int COL_SIZE = 3;
-
-  QVBoxLayout * layout = new QVBoxLayout;
-  setLayout(layout);
-  
-  layout->setAlignment(Qt::AlignTop);
-  layout->addWidget(new QLabel("Unmounted Partitions"));
-  
-  PartitionUtils::probe(ProbeOpts::UnMounted);
-
-  m_mounts_widget = new SelectMounts;
-  
 
   auto table = new QTableWidget(PartitionUtils::num_partitions(), 4);
   table->verticalHeader()->hide();
@@ -292,12 +365,6 @@ PartitionsWidget::PartitionsWidget() : ContentWidget("Mounts")
   table->setHorizontalHeaderItem(COL_FS,    new QTableWidgetItem("Filesystem"));
   table->setHorizontalHeaderItem(COL_EFI,   new QTableWidgetItem("EFI"));
   table->setHorizontalHeaderItem(COL_SIZE,  new QTableWidgetItem("Size"));
-  
-
-  if (!PartitionUtils::have_partitions())
-  {
-    qCritical() << "No partitions found";
-  }
 
   int row = 0;
   for(const auto& part : PartitionUtils::partitions())
@@ -329,8 +396,7 @@ PartitionsWidget::PartitionsWidget() : ContentWidget("Mounts")
   table->horizontalHeader()->setStretchLastSection(true);
   table->resizeRowsToContents();
 
-  layout->addWidget(table);
-  layout->addWidget(m_mounts_widget);  
+  return table;
 }
 
 
@@ -348,9 +414,9 @@ bool PartitionsWidget::is_valid()
 
 std::pair<bool, MountData> PartitionsWidget::get_data()
 {
-  if (is_valid())
-    return {true, m_mounts_widget->get_data()};
-  else
+  if (!m_mounts_widget || !is_valid())
     return {false, {}};
+  else
+    return {true, m_mounts_widget->get_data()};    
 }
 

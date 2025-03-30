@@ -2,8 +2,7 @@
 #include <ali/widgets/widgets.hpp>
 
 
-static const QString waffle_preinstall = R"!(
-### Install
+static const QString waffle_preinstall = R"!(### Install
 - A log file is created in `/var/log/ali/install.log`
 
 ---
@@ -11,32 +10,28 @@ static const QString waffle_preinstall = R"!(
 )!";
 
 
-static const QString waffle_postinstall_ok = R"!(
-# Complete
+static const QString waffle_postinstall_ok = R"!(# Complete
 
 Full details:
 - `/var/log/ali/install.log`
 
 <br/>
 
-## You can reboot now
+## You can reboot now.
 
 ---
 
 )!";
 
 
-static const QString waffle_postinstall_fail = R"!(
-# Fail
+static const QString waffle_postinstall_fail = R"!(# Fail
 
 Full details:
 - `/var/log/ali/install.log`
  
-If the error is produced during any of:
+The installed will likely fail to boot if the failure occured during
+any of:
 - mount, pacstrap, fstab, arch-choot, bootloader
-
-Rebooting to the installed system will likely fail, otherwise
-it is usually safe to reboot to the installed system. 
 
 To fix the issue in the **live ISO**, you can return to the terminal.
 
@@ -59,8 +54,8 @@ struct LogWidget : public QPlainTextEdit
     setReadOnly(true);
     setOverwriteMode(false);
     setWordWrapMode(QTextOption::WrapMode::NoWrap);
-    setFixedHeight(450);
-    setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Fixed);
+    setMinimumHeight(500);
+    setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
     setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
   }

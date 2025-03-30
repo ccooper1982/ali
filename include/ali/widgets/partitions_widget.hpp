@@ -34,9 +34,10 @@ struct PartitionsWidget : public ContentWidget
 
 private:
   std::pair<bool, std::string> get_fs_from_path(const std::string& path);
+  QTableWidget *  create_table();
 
 private:
-  SelectMounts * m_mounts_widget;
+  SelectMounts * m_mounts_widget{nullptr};
 };
 
 
