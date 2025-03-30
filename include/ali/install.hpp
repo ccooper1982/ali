@@ -46,15 +46,7 @@ private:
     }
     else
     {
-      bool part_type_set{false};
-      
-      if (part_num && !parent_dev.empty())
-      {
-        Cmd cmd{part_num, parent_dev};
-        part_type_set = cmd.execute() == CmdSuccess;
-      }
-
-      if (!part_type_set)
+      if (Cmd cmd{part_num, parent_dev}; cmd.execute() != CmdSuccess)
         log(std::format("Failed to set partition type for {}. This is not an error.", part_dev));
     }
   }
@@ -72,9 +64,9 @@ private:
 
   bool boot_loader();
   bool localise();
+  bool network();
 
-private:
-  //ProgressHandler m_progress;
+  bool enable_service(const std::string_view name);
 };
 
 #endif

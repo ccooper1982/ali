@@ -43,24 +43,21 @@ bool Install::install ()
     return ok;
   };
 
-  // minimal: mount, pacman_strap, fstab, bootloader
-  //          required for bootable system, even if in < ideal state.
 
-  // network conf
-  
-  bool minimal = false;
+  bool done = false;
   try
   {
-    minimal = exec_stage(&Install::filesystems, "filesystems") &&
-              exec_stage(&Install::mount, "mount") &&
-              exec_stage(&Install::pacman_strap, "pacstrap") &&
-              exec_stage(&Install::fstab, "fstab") &&
-              exec_stage(&Install::localise, "locale") &&
-              exec_stage(&Install::root_account, "root account") &&
-              exec_stage(&Install::user_account, "user account") &&
-              exec_stage(&Install::boot_loader, "bootloader");
+    done =  exec_stage(&Install::filesystems, "filesystems") &&
+            exec_stage(&Install::mount, "mount") &&
+            exec_stage(&Install::pacman_strap, "pacstrap") &&
+            exec_stage(&Install::fstab, "fstab") &&
+            exec_stage(&Install::localise, "locale") &&
+            exec_stage(&Install::network, "network") &&
+            exec_stage(&Install::root_account, "root account") &&
+            exec_stage(&Install::user_account, "user account") &&
+            exec_stage(&Install::boot_loader, "bootloader");
 
-    emit on_complete(minimal);
+    emit on_complete(done);
   }
   catch(const std::exception& e)
   {
@@ -68,10 +65,10 @@ bool Install::install ()
   }
   catch (...)
   {
-    log_critical("Install::install() encountered an unknown exception");
+    log_critical("Install encountered an unknown exception");
   }
 
-  return minimal;
+  return done;
 }
 
 
@@ -305,6 +302,61 @@ bool Install::localise()
 }
 
 
+// network
+bool Install::network()
+{
+  const auto data = Widgets::network()->get_data();
+
+  ChRootCmd hostname_cmd{std::format("echo \"{}\" > /etc/hostname", data.hostname)};
+  if (hostname_cmd.execute() != CmdSuccess)
+    log("Failed to set /etc/hostname");
+
+  // intentionally continuing if hostname is unset
+  if (data.copy_config)
+  {
+    // iwd config: https://wiki.archlinux.org/title/Iwd#Network_configuration
+    static const fs::path config_src {"/var/lib/iwd"};
+    static const fs::path config_dest {RootMnt / "var/lib/iwd"};
+
+    // doing: `cp` returns failure when there are no source files,
+    //        and can't find a way to supress that.
+    //        Could update Command class to ignore stdin and stderr.
+    auto cp_files = [](const std::vector<std::string_view> ext)
+    {
+      bool ok = true;
+      std::error_code ec ;
+
+      for(const auto& entry : fs::directory_iterator{config_src})
+      {
+        if (entry.is_regular_file() &&
+            std::any_of(ext.cbegin(), ext.cend(), [src_ext = entry.path().extension()](const auto ext){ return src_ext == ext; }))
+        {
+          
+          if (fs::copy(config_src, config_dest, ec); ec)
+            ok = false;
+        }
+      }
+      
+      // remove any files copied if we have error, so we don't have partial configuration
+      if (!ok)
+        fs::remove_all(config_dest, ec);
+
+      return ok;
+    };
+
+    fs::create_directories(config_dest);
+
+    if (cp_files({".psk", ".open", ".8021x"}))
+      enable_service("iwd");
+    else
+      log_critical("Failed to copy iwd configuration");  
+  }
+
+  // failing to setup network not an error
+  return true; 
+}
+
+
 // accounts
 bool Install::root_account()
 {
@@ -514,3 +566,17 @@ bool Install::boot_loader()
   return ok;
 }
 
+
+// services
+bool Install::enable_service(const std::string_view name)
+{
+  log(std::format("Enabling service {}", name));
+
+  ChRootCmd cmd{std::format("systemctl enable {}", name)};
+  
+  const int r = cmd.execute();  
+  if (r != CmdSuccess)
+    log_critical("Failed to enable service");
+  
+  return r == CmdSuccess;
+}
