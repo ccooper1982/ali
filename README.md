@@ -11,11 +11,10 @@
 The focus is reliability before adding features, such as desktop environments, multiple locale languages or additional bootloaders, 
 
 ## Current Features
-- Create filesystems on existing partitions (just `ext4` and `vfat` for now)
+- Create filesystems (`vfat` for `/boot`, and just `ext4` for `/` at the moment)
 - Ensures `/boot` is FAT32
 - Create user account, adding to sudoers if enabled
 - Locale: keyboard, language, timezone
-  - Currently just one language
 - Validation, prevent install if required
 
 
@@ -23,9 +22,9 @@ The focus is reliability before adding features, such as desktop environments, m
 There are limitations which will be addressed over the coming weeks:
 
 - Does not manage partitions. You must create partitions first
-- Only tested with a GPT partition table, likely it will only support GPT 
 - Only tested with `ext4` on `/`
 - No dedicated partition for `/home`
+- No dedicated swap partition
 - Bootloader
   - Only GRUB
   - Assumes Arch is the only OS (doesn't probe for another OS)
