@@ -267,13 +267,20 @@ struct SelectMounts : public QWidget
 
     if (root_dev == boot_dev)
       ss << "<span style=\"color:red;\">/ and /boot cannot be the same partition</span>\n";
-    if (boot_fs != "vfat")
-      ss << "<span style=\"color:red;\">/boot must be vfat</span>\n";
-    if (root_fs.isEmpty())
-      ss << "<span style=\"color:red;\">/ has no filesystem</span>\n";
-    if (boot_fs.isEmpty())
-      ss << "<span style=\"color:red;\">/boot has no filesystem</span>\n";
-    if (home_fs.isEmpty())
+    else
+    {
+      if (root_fs.isEmpty())
+      {
+        ss << "<span style=\"color:red;\">/ has no filesystem</span>\n";
+      }
+
+      if (boot_fs.isEmpty())  
+        ss << "<span style=\"color:red;\">/boot has no filesystem</span>\n";
+      else if (boot_fs != "vfat")
+        ss << "<span style=\"color:red;\">/boot must be vfat</span>\n";
+    }
+    
+    if (home_fs != root_fs && home_fs.isEmpty())
       ss << "<span style=\"color:red;\">/home has no filesystem</span>\n";
 
     m_summary->setText(m_summary_text);
