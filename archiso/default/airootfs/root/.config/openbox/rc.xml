@@ -40,7 +40,7 @@
                   'Active' - where the active window is -->
   </placement>
   <theme>
-    <name>Default</name>
+    <name>Clearlooks</name>
     <titleLayout>NLI</titleLayout>
     <keepBorder>yes</keepBorder>
     <animateIconify>no</animateIconify>
