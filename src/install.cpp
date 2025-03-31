@@ -96,6 +96,16 @@ bool Install::filesystems()
   if (mounts.boot.create_fs && !create_filesystem(mounts.boot.dev, mounts.boot.fs))
     return false;
 
+  // the UI should ensure create_fs is false if home uses root, but sanity check here
+  if (mounts.home.dev != mounts.root.dev && mounts.home.create_fs)
+  {
+    log("Setting home partition type");
+    set_partition_type<SetPartitionAsLinuxHome>(mounts.home.dev);
+
+    if (!create_filesystem(mounts.home.dev, mounts.home.fs))
+      return false;
+  }
+
   return true;
 }
 
@@ -135,14 +145,18 @@ bool Install::mount()
 {
   qDebug() << "Enter";
 
-  bool mounted_root{false}, mounted_boot{false};
+  bool mounted_root{false}, mounted_boot{false}, mounted_home{true};
 
   const auto [valid, mount_data] = Widgets::partitions()->get_data();
 
   if (!valid)
-    log_critical("Could not get the partitions paths and filesystem");
+    log_critical("Could not get partition paths and filesystems");
   else
   {
+    // TODO this only checks if path is mounted (i.e. /mnt/boot), should it also 
+    //      check if device is mounted (i.e. /dev/sda2)? If the device is mounted
+    //      elsewhere, we should fail.
+
     if (PartitionUtils::is_path_mounted(BootMnt.string()))
     {
       log(std::format("{} is already mounted, unmounting", BootMnt.c_str()));
@@ -155,19 +169,28 @@ bool Install::mount()
       ::umount(RootMnt.c_str());
     }
 
-    mounted_root = do_mount(mount_data.root.dev, RootMnt.c_str(), mount_data.root.fs);  // TODO: get fs from widget
-    mounted_boot = do_mount(mount_data.boot.dev, BootMnt.c_str(), mount_data.boot.fs);
-    
-    if (mounted_root)
-      log(std::format("Mounted {} -> {}", RootMnt.c_str(), mount_data.root.dev));
+    if (PartitionUtils::is_path_mounted(HomeMnt.string()))
+    {
+      log(std::format("{} is already mounted, unmounting", HomeMnt.c_str()));
+      ::umount(RootMnt.c_str());
+    }
 
-    if (mounted_boot)
-      log(std::format("Mounted {} -> {}", BootMnt.c_str(), mount_data.boot.dev));
+    mounted_root = do_mount(mount_data.root.dev, RootMnt.c_str(), mount_data.root.fs);
+    mounted_boot = do_mount(mount_data.boot.dev, BootMnt.c_str(), mount_data.boot.fs);
+
+    log(std::format("Mount of {} -> {} : {}", RootMnt.c_str(), mount_data.root.dev, mounted_root ? "Success" : "Fail"));
+    log(std::format("Mount of {} -> {} : {}", BootMnt.c_str(), mount_data.boot.dev, mounted_boot ? "Success" : "Fail"));
+
+    if (mount_data.home.dev != mount_data.root.dev)
+    {
+      mounted_home = do_mount(mount_data.home.dev, HomeMnt.c_str(), mount_data.home.fs);
+      log(std::format("Mount of {} -> {} : {}", HomeMnt.c_str(), mount_data.home.dev, mounted_home ? "Success" : "Fail"));
+    }
   }
 
   qDebug() << "Leave";
 
-  return mounted_root && mounted_boot;
+  return mounted_root && mounted_boot && mounted_home;
 }
 
 
@@ -283,7 +306,6 @@ bool Install::localise()
   {
     log_critical("Setting key map failed"); // not actually critital, but no "log_error()" yet
   }
-
 
   log("Generating locales");
   if (!LocaleUtils::generate_locale(locale_data.locales, locale_data.locales[0]))

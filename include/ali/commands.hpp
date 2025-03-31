@@ -178,6 +178,7 @@ struct SetPartitionType : public Command
   }
 };
 
+// Hex codes taken from: https://gist.github.com/gotbletu/a05afe8a76d0d0e8ec6659e9194110d2
 struct EfiType
 {
   static constexpr char hex[] = "ef00";
@@ -188,8 +189,20 @@ struct LinuxRootType
   static constexpr char hex[] = "8304";
 };
 
+struct LinuxHomeType
+{
+  static constexpr char hex[] = "8302";
+};
+
+// Not used yet
+// struct LinuxSwapType
+// {
+//   static constexpr char hex[] = "8200";
+// };
+
 using SetPartitionAsEfi = SetPartitionType<EfiType>;
 using SetPartitionAsLinuxRoot = SetPartitionType<LinuxRootType>;
+using SetPartitionAsLinuxHome = SetPartitionType<LinuxHomeType>;
 
 
 #endif

@@ -9,6 +9,12 @@
 #include <set>
 #include <QDebug>
 
+const fs::path HomeMnt{"/mnt/home"};
+const fs::path BootMnt{"/mnt/boot"};
+const fs::path RootMnt{"/mnt"};
+const fs::path EfiMnt{"/mnt/boot/efi"};
+const fs::path FsTabPath{"/mnt/etc/fstab"};
+
 
 Partitions PartitionUtils::m_parts;
 

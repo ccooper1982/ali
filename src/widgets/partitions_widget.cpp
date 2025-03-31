@@ -18,11 +18,12 @@ If your partitions are not showing, return to the terminal:
 To keep an existing filesystem, leave the "Create Filesystem" option
 blank, otherwise set the desired filesystem.
 
+<br/>
 
-`/boot`
-- Must be `FAT32`. Created filesystem is always FAT32 
-- Recommended size: 512MB - 1GB
+- `/boot` must be `vfat (FAT32)`, and should be 512MB to 1GB
+- Created filesystem on `/boot` is always FAT32
 )!";
+
 
 static const QString waffle_title_no_parts = R"!( ## Partitions
 No eligible partitions found:
@@ -158,11 +159,15 @@ struct SelectMounts : public QWidget
 
     setLayout(layout);
 
+
     connect(m_home_to_root, &QCheckBox::checkStateChanged, [this](const Qt::CheckState state)
     {
       if (state == Qt::Checked)
       {
-        m_home_dev->setCurrentText(m_root_dev->currentText()); // triggers update_mount_data()
+        // triggers update_mount_data()
+        m_home_dev->setCurrentText(m_root_dev->currentText());
+        m_home_fs->setCurrentText(m_root_fs->currentText());
+
         m_home_dev->setEnabled(false);
         m_home_fs->setEnabled(false);
       }
@@ -170,19 +175,23 @@ struct SelectMounts : public QWidget
       {
         m_home_dev->setEnabled(true);
         m_home_fs->setEnabled(true);
-      }
+      
+        update_mount_data();
+      }      
     });
 
+    // root
     connect(m_root_dev, &QComboBox::currentTextChanged, [this](const QString& value)
     {
       if (m_home_to_root->checkState() == Qt::Checked)
       {
         m_home_dev->setCurrentText(value);
         m_home_fs->setCurrentText(m_root_fs->currentText());
-      
-        update_mount_data();
       }
+
+      update_mount_data();
     });
+
 
     connect(m_root_fs, &QComboBox::currentTextChanged, this, [this](const QString val)
     {
@@ -193,7 +202,7 @@ struct SelectMounts : public QWidget
       }
     });
     
-    
+    // boot
     connect(m_boot_dev, &QComboBox::currentTextChanged, this, [this](const QString val)
     {
       update_mount_data();
@@ -204,10 +213,19 @@ struct SelectMounts : public QWidget
       update_mount_data();
     });
 
+    // home
+    connect(m_home_dev, &QComboBox::currentTextChanged, this, [this](const QString val)
+    {
+      update_mount_data();
+    });
 
-    // enforce and disable until implemented
+    connect(m_home_fs, &QComboBox::currentTextChanged, this, [this](const QString val)
+    {
+      update_mount_data();
+    });
+
+    
     m_home_to_root->setChecked(true);
-    m_home_to_root->setEnabled(false);
 
     update_mount_data();
   }
@@ -217,25 +235,29 @@ struct SelectMounts : public QWidget
   {
     m_mounts.root.dev = m_root_dev->currentText().toStdString();
     m_mounts.root.create_fs = m_root_fs->currentIndex () != 0;
-    m_mounts.root.fs = m_root_fs->currentText().toStdString();
+    m_mounts.root.fs = m_mounts.root.create_fs ?  m_root_fs->currentText().toStdString() :
+                                                  PartitionUtils::get_partition_fs(m_mounts.root.dev);
 
     m_mounts.boot.dev = m_boot_dev->currentText().toStdString();
     m_mounts.boot.create_fs = m_boot_fs->currentIndex () != 0;
-    m_mounts.boot.fs = m_boot_fs->currentText().toStdString();
+    m_mounts.boot.fs = m_mounts.boot.create_fs ?  m_boot_fs->currentText().toStdString() :
+                                                  PartitionUtils::get_partition_fs(m_mounts.boot.dev);
 
-    m_mounts.home.dev = m_home_dev->currentText().toStdString();
-    m_mounts.home.create_fs = m_home_fs->currentIndex () != 0;
-    m_mounts.home.fs = m_home_fs->currentText().toStdString();
-
-    if (!m_mounts.root.create_fs)
-      m_mounts.root.fs = PartitionUtils::get_partition_fs(m_mounts.root.dev);
     
-    if (!m_mounts.boot.create_fs)
-      m_mounts.boot.fs = PartitionUtils::get_partition_fs(m_mounts.boot.dev);
-
-    if (!m_mounts.home.create_fs)
-      m_mounts.home.fs = PartitionUtils::get_partition_fs(m_mounts.home.dev);
-
+    if (m_home_to_root->isChecked())
+    {
+      m_mounts.home.dev = m_mounts.root.dev;
+      m_mounts.home.fs = m_mounts.root.fs;
+      m_mounts.home.create_fs = false;
+    }
+    else
+    {
+      m_mounts.home.dev = m_home_dev->currentText().toStdString();
+      m_mounts.home.create_fs = m_home_fs->currentIndex () != 0;
+      m_mounts.home.fs = m_mounts.home.create_fs ?  m_home_fs->currentText().toStdString() :
+                                                    PartitionUtils::get_partition_fs(m_mounts.home.dev);
+    }
+    
     if (summary)
       update_summary();
   }

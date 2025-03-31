@@ -9,10 +9,11 @@
 #include <ali/common.hpp>
 
 
-inline const fs::path BootMnt{"/mnt/boot"};
-inline const fs::path RootMnt{"/mnt"};
-inline const fs::path EfiMnt{"/mnt/boot/efi"};
-inline const fs::path FsTabPath{"/mnt/etc/fstab"};
+extern const fs::path HomeMnt;
+extern const fs::path BootMnt;
+extern const fs::path RootMnt;
+extern const fs::path EfiMnt;
+extern const fs::path FsTabPath;
 
 
 // partitions, mounting, filesystems
