@@ -23,7 +23,6 @@ There are limitations which will be addressed over the coming weeks:
 
 - Does not manage partitions. You must create partitions first
 - Only tested with `ext4` on `/`
-- No dedicated partition for `/home`
 - No dedicated swap partition
 - Bootloader
   - Only GRUB
