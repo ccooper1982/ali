@@ -70,7 +70,8 @@ class PartitionUtils
 {
 public:
   // probe all block devices. clears previous probe results.
-  // store partition, retrieved by partitions().
+  // store partitions, retrieved by partitions(). Only stores
+  // partitions, discards disks.
   static bool probe(const ProbeOpts opts);
   
   static const Partitions& partitions() { return m_parts; }

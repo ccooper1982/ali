@@ -11,8 +11,9 @@ static const QString waffle_title_have_parts = R"!(## Partitions
 This table only shows partitions that are within a **GPT**
 and **not mounted**.
 
-If your partitions are not showing, return to the terminal:
-- `lsblk -o PTTYPE,MOUNTPOINT <device>`
+If your partitions are not showing, return to the terminal and either:
+1. `lsblk -o PTTYPE,MOUNTPOINT <device>`
+2. `findmnt`
 
 
 To keep an existing filesystem, leave the "Create Filesystem" option

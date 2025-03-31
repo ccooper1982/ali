@@ -1,5 +1,6 @@
 #include <ali/widgets/packages_widget.hpp>
 #include <ali/commands.hpp>
+#include <ali/packages.hpp>
 #include <QFormLayout>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -13,28 +14,32 @@
 
 
 
+enum class Type { Kernel, Firmware, Required };
+
+
 struct SelectPackagesWidget : public QWidget
 {  
   enum class Options { All, One, None };
+  
 
-  static SelectPackagesWidget * all_required(const QStringList& names)
+  static SelectPackagesWidget * all_required(const QStringList& names, const Type type)
   {
-    return new SelectPackagesWidget(names, Options::All, -1);
+    return new SelectPackagesWidget(names, Options::All, type);
   }
 
-  static SelectPackagesWidget * one_required(const QStringList& names, const qsizetype required_index = 0)
+  static SelectPackagesWidget * one_required(const QStringList& names, const Type type)
   {
-    return new SelectPackagesWidget(names, Options::One, required_index);
+    return new SelectPackagesWidget(names, Options::One, type);
   }
 
-  static SelectPackagesWidget * none_required(const QStringList& names)
+  static SelectPackagesWidget * none_required(const QStringList& names, const Type type)
   {
-    return new SelectPackagesWidget(names, Options::None, -1);
+    return new SelectPackagesWidget(names, Options::None, type);
   }
 
-  static SelectPackagesWidget * none_required(const QMap<QString, bool>& names)
+  static SelectPackagesWidget * none_required(const QMap<QString, bool>& names, const Type type)
   {
-    auto * widget = new SelectPackagesWidget(names.keys(), Options::None, -1);
+    auto * widget = new SelectPackagesWidget(names.keys(), Options::None, type);
 
     for (const auto& package : names.keys(true))
     {
@@ -46,14 +51,26 @@ struct SelectPackagesWidget : public QWidget
   }
 
 
-  SelectPackagesWidget(const QStringList& names, const Options opt, const qsizetype req_index)
+  SelectPackagesWidget(const QStringList& names, const Options opt, const Type type)
   {
-    auto selected = [this](const bool checked, const QString& val)
+    auto selected = [this, type](const bool checked, const QString& val)
     {
-      if (checked)
-        m_selected.insert(val);
-      else
-        m_selected.remove(val);
+      switch (type)
+      {
+        using enum Type;
+
+        case Kernel:
+          checked ? Packages::add_kernel(val) : Packages::remove_kernel(val);
+        break;
+
+        case Required:
+          checked ? Packages::add_required(val) : Packages::remove_required(val);
+        break;
+
+        case Firmware:
+          checked ? Packages::add_firmware(val) : Packages::remove_firmware(val);
+        break;
+      }
     };
 
     QHBoxLayout * layout = new QHBoxLayout;
@@ -80,7 +97,7 @@ struct SelectPackagesWidget : public QWidget
       
       if (opt == Options::All)
         chk->setChecked(true);
-      else if (opt == Options::One && i++ == req_index)
+      else if (opt == Options::One && i++ == 0) // required is always the first package
         chk->setChecked(true);
 
       layout->addWidget(chk);
@@ -92,13 +109,7 @@ struct SelectPackagesWidget : public QWidget
     setLayout(layout);
   }
 
-  
-  const QSet<QString>& get_selected() const 
-  {
-    return m_selected;
-  }
-
-  
+    
   void select (const QStringList& packages)
   {
     for (const auto& package : packages)
@@ -108,11 +119,8 @@ struct SelectPackagesWidget : public QWidget
     }
   }
 
-private:
-
 
 private:
-  QSet<QString> m_selected;
   QButtonGroup * m_buttons;
 };
 
@@ -128,7 +136,7 @@ PackagesWidget::PackagesWidget() : ContentWidget("Packages")
   const QString cpu_ucode = cpu_vendor == CpuVendor::Vendor::Amd ? "amd-ucode" : "intel-ucode";
 
   {
-    m_required = SelectPackagesWidget::all_required({"base", cpu_ucode, "sudo"});
+    m_required = SelectPackagesWidget::all_required({"base", cpu_ucode, "sudo", "iwd"}, Type::Required);
     
     QGroupBox * group_required = new QGroupBox("Required");
     group_required->setLayout(m_required->layout());    
@@ -138,8 +146,8 @@ PackagesWidget::PackagesWidget() : ContentWidget("Packages")
   }
   
   {
-    // https://wiki.archlinux.org/title/Kernel#Officially_supported_kernels
-    m_kernels =  SelectPackagesWidget::one_required({"linux"});
+    // TODO https://wiki.archlinux.org/title/Kernel#Officially_supported_kernels
+    m_kernels =  SelectPackagesWidget::one_required({"linux"}, Type::Kernel);
     
     QGroupBox * group_kernels = new QGroupBox("Kernels");
     group_kernels->setLayout(m_kernels->layout());    
@@ -148,7 +156,7 @@ PackagesWidget::PackagesWidget() : ContentWidget("Packages")
   }
 
   {
-    m_firmware = SelectPackagesWidget::none_required({"linux-firmware"});
+    m_firmware = SelectPackagesWidget::none_required({"linux-firmware"}, Type::Firmware);
     
     QGroupBox * group_firmware = new QGroupBox("Firmware");
     group_firmware->setLayout(m_firmware->layout());    
@@ -156,14 +164,15 @@ PackagesWidget::PackagesWidget() : ContentWidget("Packages")
     layout->addWidget(group_firmware);
   }
 
-  {
-    m_recommended = SelectPackagesWidget::none_required({{"nano",true}, {"git",false}});
+  // TODO removed: replace with user-typed package names
+  // { 
+  //   m_recommended = SelectPackagesWidget::none_required({{"nano",true}, {"git",false}});
     
-    QGroupBox * group_recommended = new QGroupBox("Recommended");
-    group_recommended->setLayout(m_recommended->layout());    
+  //   QGroupBox * group_recommended = new QGroupBox("Recommended");
+  //   group_recommended->setLayout(m_recommended->layout());    
 
-    layout->addWidget(group_recommended);
-  }
+  //   layout->addWidget(group_recommended);
+  // }
   
   setLayout(layout);
 }
@@ -171,16 +180,6 @@ PackagesWidget::PackagesWidget() : ContentWidget("Packages")
 
 bool PackagesWidget::is_valid()
 {
-  const bool valid = !m_required->get_selected().empty() &&
-                     !m_kernels->get_selected().empty(); 
-  return valid;
+  return Packages::have_kernel() && Packages::have_required();
 }
 
-
-PackageData PackagesWidget::get_data()
-{
-  return PackageData {.required = m_required->get_selected(),
-                      .kernels = m_kernels->get_selected(),
-                      .firmware = m_firmware->get_selected(),
-                      .recommended = m_recommended->get_selected()};
-}

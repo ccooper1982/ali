@@ -1,6 +1,7 @@
 #include <ali/install.hpp>
 #include <ali/disk_utils.hpp>
 #include <ali/locale_utils.hpp>
+#include <ali/packages.hpp>
 #include <ali/widgets/widgets.hpp>
 #include <sstream>
 #include <string>
@@ -14,15 +15,18 @@ void Install::log(const std::string_view msg)
   emit on_log(QString::fromLocal8Bit(msg.data(), msg.size()));
 }
 
+
 void Install::log_stage_start(const std::string_view msg)
 {
   emit on_stage_start(QString::fromLocal8Bit(msg.data(), msg.size()));
 }
 
+
 void Install::log_stage_end(const std::string_view msg)
 {
   emit on_stage_end(QString::fromLocal8Bit(msg.data(), msg.size()));
 }
+
 
 void Install::log_critical(const std::string_view msg)
 {
@@ -217,35 +221,27 @@ bool Install::pacman_strap()
 {
   qDebug() << "Enter";
 
-  auto create_cmd_string = [](const PackageData& data)
+  auto create_cmd_string = []()
   {
     // pacstrap -K <root_mount> <package_list>
 
     std::stringstream cmd_string;
-
-    auto append = [&cmd_string](const QSet<QString> packages)
-    {
-      for (const auto& p : packages)
-        cmd_string << ' ' << p.toLatin1().constData() ;
-    };
-    
-    cmd_string << "pacstrap -K " << RootMnt.string();
-    
-    append(data.required);
-    append(data.kernels);
-    append(data.firmware);
-    append(data.recommended);
+    cmd_string << "pacstrap -K " << RootMnt.string() << ' ';
+    cmd_string << Packages::required();
+    cmd_string << Packages::kernels();
+    cmd_string << Packages::firmware();
 
     return cmd_string.str();
   };
 
   
-  const PackageData data = Widgets::packages()->get_data();
-  const auto cmd_string = create_cmd_string(data);
+  const auto cmd_string = create_cmd_string();
 
+  qInfo() << cmd_string;
   log(cmd_string);
-
-  // intercept missing firmware from pacstrap
+  
+  // intercept missing firmware message from pacstrap
+  
   bool firmware_warning = false;
   Command pacstrap {cmd_string, [this, &firmware_warning](const std::string_view out)
   {    
@@ -264,9 +260,6 @@ bool Install::pacman_strap()
   }
   else if (firmware_warning)
     log("NOTE: warnings of missing firmware. This can be fixed post-install");
-  else
-    log("Done");
-
 
   qDebug() << "Leave";
 
@@ -327,6 +320,9 @@ bool Install::localise()
 // network
 bool Install::network()
 {
+  // This assumes `iwd` is the only network manager. The UI should warn
+  // if NetworkManager is installed.
+
   const auto data = Widgets::network()->get_data();
 
   ChRootCmd hostname_cmd{std::format("echo \"{}\" > /etc/hostname", data.hostname)};
@@ -369,9 +365,21 @@ bool Install::network()
     fs::create_directories(config_dest);
 
     if (cp_files({".psk", ".open", ".8021x"}))
-      enable_service("iwd");
+      enable_service("iwd.service");
     else
       log_critical("Failed to copy iwd configuration");  
+
+
+    enable_service("systemd-networkd.service");
+    enable_service("systemd-resolved.service");
+    // TODO ModemManager for wwlan (mobile 3g/4g, etc)?
+    //      https://wiki.archlinux.org/title/Mobile_broadband_modem#ModemManager
+  }
+
+  if (data.ntp)
+  {
+    // this enables NTP
+    enable_service("systemd-timesyncd.service");
   }
 
   // failing to setup network not an error
