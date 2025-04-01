@@ -267,8 +267,6 @@ bool Install::pacman_strap()
 }
 
 
-// -- Everything below here is within chroot --
-
 // fstab
 bool Install::fstab()
 {
@@ -564,11 +562,19 @@ bool Install::boot_loader()
       // NOTE from arch guide:
       //  "os-prober might not work properly when run in a chroot. Try again after rebooting into the system if you experience this."
       // GRUB_DISABLE_OS_PROBER is commented out, easier to just append
-      ChRootCmd grub_cfg{std::format("echo GRUB_DISABLE_OS_PROBER=false >> /etc/default/grub")};
-      if (grub_cfg.execute() != CmdSuccess)
+      bool updated_cfg = true;
+      {
+        std::ofstream grub_cfg{RootMnt / fs::path{"etc/default/grub"}, std::ios_base::app};
+        if (grub_cfg.good())
+          grub_cfg << "GRUB_DISABLE_OS_PROBER=false";
+        else
+          updated_cfg = false;
+      }
+
+      if (!updated_cfg)
       {
         // is this actually a reason to fail?
-        log_critical("Failed to edit grub config for OS_PROBER");      
+        log_critical("Failed to edit grub config for OS_PROBER");
       }
       else
       {

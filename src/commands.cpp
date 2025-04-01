@@ -85,12 +85,8 @@ int Command::execute (OutputHandler&& on_output, const int max_lines)
 
 int Command::execute_write(const std::string_view s)
 {
-  std::cout << "execute_write()\n";
-
   if (FILE * fd = ::popen(m_cmd.data(), "w"); fd)
   {
-    std::cout << "writing: " << s << '\n';
-
     fputs(s.data(), fd);
     return ::pclose(fd);
   }
