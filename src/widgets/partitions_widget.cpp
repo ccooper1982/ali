@@ -11,47 +11,54 @@ static const QString waffle_title_have_parts = R"!(## Partitions
 This table only shows partitions that are within a **GPT**
 and **not mounted**.
 
-If your partitions are not showing, return to the terminal and either:
-1. `lsblk -o PTTYPE,MOUNTPOINT <device>`
-2. `findmnt`
+If your partitions are not showing, return to the terminal:
+- `lsblk -o PATH,PTTYPE,MOUNTPOINT <dev>`
 
-
+<br/>
 To keep an existing filesystem, leave the "Create Filesystem" option
 blank, otherwise set the desired filesystem.
 
 <br/>
 
-- `/boot` must be `vfat (FAT32)`, and should be 512MB to 1GB
+- `/boot` must be `vfat (FAT32)`, and 512MB to 1GB
 - Created filesystem on `/boot` is always FAT32
 )!";
 
 
 static const QString waffle_title_no_parts = R"!( ## Partitions
-No eligible partitions found:
-- Device must have a GPT (partition table)
-- Partition must **not** be mounted
+No eligible partitions found. Partitions must be GPT and **not** mounted.
 
 <br/>
 
 Return to the terminal, then:
-- `lsblk -o PATH,PTTYPE,MOUNTPOINT <device>`
+- `lsblk -o PATH,PTTYPE,MOUNTPOINT <dev>`
 
 <br/>
 
 PTTYPE must be `gpt` and MOUNTPOINT empty.
 
-- If required, unmount with: `umount <mount_point>`
-- Remove all partition tables: `wipefs -a -f <dev>`
-  - Take care: assume data is unrecoverable
-- Create GPT:
-  - `fdisk <dev>`
-  - Enter `g`, press enter, then `w` and press Enter
+- To ummount: `umount <mount_point>`
+
+If you know you don't need the data:
+- `wipefs -a -f <dev>`
+- This removes the partition table
+- Assume data is **unrecoverable** after this command
+
+In any case, you need a GPT label on the device
+for Arch, and at least two partitions (for boot and root).
 
 <br/>
 
-Then use `fdisk <dev>` or `cfdisk <dev>` to create partitions as required.
-- Boot partition should be at least 512MB
-- Root partition should be at least 8GB (minimal) or 16GB (desktop)
+### Create GPT Label
+- `fdisk <dev>`
+- Enter `g`, press enter, then `w` and press Enter
+
+<br/>
+
+### Create Partitions
+Use `fdisk <dev>` or `cfdisk <dev>`.
+- Boot partition should be **at least** 512MB, preferably 1GB
+- Root partition should be **at least** 8GB, preferably 32GB
 )!";
 
 

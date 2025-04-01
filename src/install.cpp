@@ -535,7 +535,7 @@ bool Install::boot_loader()
 
   // TODO: systemd-boot
 
-  ChRootCmd install {"pacman -Sy --noconfirm grub efibootmgr", [this](const std::string_view out)
+  ChRootCmd install {"pacman -Sy --noconfirm grub efibootmgr os-prober", [this](const std::string_view out)
   {
     qInfo() << out;
     log(out);
@@ -561,16 +561,28 @@ bool Install::boot_loader()
     }
     else
     {
-      ChRootCmd grub_config{"grub-mkconfig -o /boot/grub/grub.cfg", [this](const std::string_view out)
+      // NOTE from arch guide:
+      //  "os-prober might not work properly when run in a chroot. Try again after rebooting into the system if you experience this."
+      // GRUB_DISABLE_OS_PROBER is commented out, easier to just append
+      ChRootCmd grub_cfg{std::format("echo GRUB_DISABLE_OS_PROBER=false >> /etc/default/grub")};
+      if (grub_cfg.execute() != CmdSuccess)
       {
-        qInfo() << out;
-        log(out);
-      }};
-
-      if (r = grub_config.execute(); r != CmdSuccess)
-        log_critical(std::format("grub-mkconfig failed: {}", strerror(r)));
+        // is this actually a reason to fail?
+        log_critical("Failed to edit grub config for OS_PROBER");      
+      }
       else
-        ok = true;
+      {
+        ChRootCmd grub_config{"grub-mkconfig -o /boot/grub/grub.cfg", [this](const std::string_view out)
+        {
+          qInfo() << out;
+          log(out);
+        }};
+  
+        if (r = grub_config.execute(); r != CmdSuccess)
+          log_critical(std::format("grub-mkconfig failed: {}", strerror(r)));
+        else
+          ok = true;
+      }
     }
   }
 
