@@ -67,6 +67,8 @@ private:
   bool network();
 
   bool enable_service(const std::string_view name);
+
+  bool copy_files(const fs::path& src, const fs::path& dest, const std::vector<std::string_view>& extensions);
 };
 
 #endif

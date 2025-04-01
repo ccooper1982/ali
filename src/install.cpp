@@ -333,45 +333,28 @@ bool Install::network()
   if (data.copy_config)
   {
     // iwd config: https://wiki.archlinux.org/title/Iwd#Network_configuration
-    static const fs::path config_src {"/var/lib/iwd"};
-    static const fs::path config_dest {RootMnt / "var/lib/iwd"};
+    static const fs::path iwd_config_src {"/var/lib/iwd"};
+    static const fs::path iwd_config_dest {RootMnt / "var/lib/iwd"};
+    static const fs::path sysd_config_src {"/etc/systemd/network"};
+    static const fs::path sysd_config_dest {RootMnt / "etc/systemd/network"};
 
-    // doing: `cp` returns failure when there are no source files,
-    //        and can't find a way to supress that.
-    //        Could update Command class to ignore stdin and stderr.
-    auto cp_files = [](const std::vector<std::string_view> ext)
-    {
-      bool ok = true;
-      std::error_code ec ;
-
-      for(const auto& entry : fs::directory_iterator{config_src})
-      {
-        if (entry.is_regular_file() &&
-            std::any_of(ext.cbegin(), ext.cend(), [src_ext = entry.path().extension()](const auto ext){ return src_ext == ext; }))
-        {
-          
-          if (fs::copy(config_src, config_dest, ec); ec)
-            ok = false;
-        }
-      }
-      
-      // remove any files copied if we have error, so we don't have partial configuration
-      if (!ok)
-        fs::remove_all(config_dest, ec);
-
-      return ok;
-    };
-
-    fs::create_directories(config_dest);
-
-    if (cp_files({".psk", ".open", ".8021x"}))
+    
+    // iwd
+    if (copy_files(iwd_config_src, iwd_config_dest, {".psk", ".open", ".8021x"}))
       enable_service("iwd.service");
     else
-      log_critical("Failed to copy iwd configuration");  
+      log_critical("Failed to configure iwd");  
 
+    // systemd-networkd
+    if (copy_files(sysd_config_src, sysd_config_dest, {".network", ".netdev", ".link"}))
+    {
+      enable_service("systemd-networkd.service");
+      enable_service("systemd-resolved.service");
+    }
+    else
+      log_critical("Failed to configure systemd-networkd");  
+    
 
-    enable_service("systemd-networkd.service");
-    enable_service("systemd-resolved.service");
     // TODO ModemManager for wwlan (mobile 3g/4g, etc)?
     //      https://wiki.archlinux.org/title/Mobile_broadband_modem#ModemManager
   }
@@ -609,4 +592,46 @@ bool Install::enable_service(const std::string_view name)
     log_critical("Failed to enable service");
   
   return r == CmdSuccess;
+}
+
+
+// useful
+bool Install::copy_files(const fs::path& src, const fs::path& dest, const std::vector<std::string_view>& extensions)
+{
+  auto is_ext = [&extensions](const fs::path& src_ext)
+  {
+    return std::any_of(extensions.cbegin(), extensions.cend(), [src_ext](const auto ext){ return src_ext == ext; });
+  };
+
+
+  std::error_code ec;
+  // if directories already exists, create_directories() returns false,
+  // which is not an error condition
+  if (fs::create_directories(dest, ec); !fs::exists(dest))
+  {
+    log_critical(std::format("{} does not exist and it failed to create: {}", dest.string(), ec.message()));
+    return false;
+  }
+  else
+  {
+    bool ok = true;
+
+    for(const auto& entry : fs::directory_iterator{src})
+    {
+      if (entry.is_regular_file() && is_ext(entry.path().extension()))
+      {
+        if (fs::copy(entry.path(), dest, ec); ec)
+        {
+          ok = false;
+          break;
+        }
+      }
+    }
+    
+    // remove any files copied if we have error, so we don't have partial configuration
+    if (!ok)
+      fs::remove_all(dest, ec);
+
+    return ok;
+  }
 }
