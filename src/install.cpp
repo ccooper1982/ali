@@ -9,6 +9,10 @@
 #include <sys/mount.h>
 #include <QDebug>
 
+static const fs::path TmpMountPath {"/tmp/ali/mnt"};
+static std::vector<std::string> temp_mounts;
+
+
 
 void Install::log(const std::string_view msg)
 {
@@ -198,14 +202,14 @@ bool Install::mount()
 }
 
 
-bool Install::do_mount(const std::string_view dev, const std::string_view path, const std::string_view fs)
+bool Install::do_mount(const std::string_view dev, const std::string_view path, const std::string_view fs, const bool read_only)
 {
   qDebug() << "Enter";
 
   if (!fs::exists(path))
     fs::create_directory(path);
 
-  const int r = ::mount(dev.data(), path.data(), fs.data(), 0, nullptr) ;
+  const int r = ::mount(dev.data(), path.data(), fs.data(), read_only ? MS_RDONLY : 0, nullptr) ;
   
   if (r != 0)
     log_critical(std::format("do_mount(): {} {}", path, ::strerror(errno)));
@@ -547,54 +551,129 @@ bool Install::boot_loader()
   {
     const std::string cmd_init = std::format("grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB");
     
-    ChRootCmd grub_init{cmd_init, [this](const std::string_view out)
+    ChRootCmd grub_install{cmd_init, [this](const std::string_view out)
     {
       qInfo() << out;
       log(out);
     }};
 
-    if (r = grub_init.execute(); r != CmdSuccess)
+    if (r = grub_install.execute(); r != CmdSuccess)
     {
       log_critical(std::format("grub-install failed: {}", strerror(r)));
     }
     else
     {
-      // NOTE from arch guide:
-      //  "os-prober might not work properly when run in a chroot. Try again after rebooting into the system if you experience this."
-      // GRUB_DISABLE_OS_PROBER is commented out, easier to just append
-      bool updated_cfg = true;
+      if (!prepare_grub_probe())
       {
-        std::ofstream grub_cfg{RootMnt / fs::path{"etc/default/grub"}, std::ios_base::app};
-        if (grub_cfg.good())
-          grub_cfg << "GRUB_DISABLE_OS_PROBER=false";
-        else
-          updated_cfg = false;
+        // not a reason to stop: it's annoying for user but they can still have a working Arch
+        log_critical("Failed to setup for grub's os-prober");
       }
+      
+      ChRootCmd grub_config{"grub-mkconfig -o /boot/grub/grub.cfg", [this](const std::string_view out)
+      {
+        qInfo() << out;
+        log(out);
+      }};
 
-      if (!updated_cfg)
-      {
-        // is this actually a reason to fail?
-        log_critical("Failed to edit grub config for OS_PROBER");
-      }
+      if (r = grub_config.execute(); r != CmdSuccess)
+        log_critical(std::format("grub-mkconfig failed: {}", strerror(r)));
       else
-      {
-        ChRootCmd grub_config{"grub-mkconfig -o /boot/grub/grub.cfg", [this](const std::string_view out)
-        {
-          qInfo() << out;
-          log(out);
-        }};
-  
-        if (r = grub_config.execute(); r != CmdSuccess)
-          log_critical(std::format("grub-mkconfig failed: {}", strerror(r)));
-        else
-          ok = true;
-      }
+        ok = true;
+    
+      
+      cleanup_grub_probe();
     }
   }
 
   qDebug() << "Leave";
 
   return ok;
+}
+
+
+bool Install::prepare_grub_probe()
+{
+  log("Preparing for GRUB os-probe");
+
+  // NOTE from arch guide:
+  //  "os-prober might not work properly when run in a chroot. Try again after rebooting into the system if you experience this."
+  // GRUB_DISABLE_OS_PROBER is commented out, easier to just append
+  bool updated_cfg{true}, mounted{true};
+  
+  std::ofstream grub_cfg{RootMnt / fs::path{"etc/default/grub"}, std::ios_base::app};
+  if (grub_cfg.good())
+    grub_cfg << "GRUB_DISABLE_OS_PROBER=false";
+  else
+  {
+    updated_cfg = false;
+    log_critical("Failed to update GRUB config file"); // TODO need log_warning()
+  }
+
+  if (updated_cfg)
+  {
+    log ("Mounting other partitions");
+
+    // the os-prober uses the mount table to search partitions, so we must mount all applicable partitions
+    if (!PartitionUtils::probe_for_os_discover())
+    {
+      log_critical("Failed to probe for other OS partitions");
+      mounted = false;
+    }
+    else
+    {
+      // the mount point doesn't actually matter, just that we mount, updating the mount table
+      // we need to do this as chroot, so use ChrootCmd rather than calling do_mount(), so we mount
+      // to /tmp/ali/mnt/0, /tmp/ali/mnt/1 , etc . We later clean up with recursive `umount`
+      // ChRootCmd create_mnt_dir {std::format("mkdir {}", TmpMountPath.string())};
+      // create_mnt_dir.execute();
+      const auto parts = PartitionUtils::partitions();
+      const auto [_, mount_data] = Widgets::partitions()->get_data(); // '_' must be valid or we'd not be here
+
+      unsigned int i = 0;
+      for (const auto& part : parts)
+      {
+        // partition can't contain OS if: it's EFI; has no filesystem;
+        // and we don't want mount any of the partitions of the installed Arch
+        if (!part.is_efi && !part.fs_type.empty() &&  part.dev != mount_data.boot.dev &&
+                                                      part.dev != mount_data.root.dev && 
+                                                      part.dev != mount_data.home.dev)
+        {
+          const auto fs = part.fs_type == "ntfs" ? "ntfs3" : part.fs_type; // TODO unreliable hack?
+
+          const auto mount_point = std::format("{}/{}", TmpMountPath.string(), i++);
+          const auto mount_cmd = std::format("mount --mkdir --read-only --target-prefix {} -t {} {} {}", RootMnt.string(), fs, part.dev, mount_point);
+          
+          if (Command cmd{mount_cmd}; cmd.execute() != CmdSuccess)
+          {
+            log_critical(std::format("Failed to mount {} -> {}", part.dev, mount_point)); // TODO need log_warning()
+            mounted = false;
+            break;
+          }
+          else
+          {
+            log(std::format("Mounted {} -> {}", part.dev, mount_point));
+            temp_mounts.emplace_back(mount_point);
+          }
+        }
+      }
+    }
+  }
+
+  return updated_cfg && mounted;
+}
+
+
+void Install::cleanup_grub_probe()
+{
+  for (const auto& m : temp_mounts)
+  {
+    const auto path = std::format("{}{}", RootMnt.string(), m);
+
+    log(std::format("Unmounting: {}", path));
+
+    Command cmd{std::format("umount -f {}", path)};
+    cmd.execute();
+  }
 }
 
 

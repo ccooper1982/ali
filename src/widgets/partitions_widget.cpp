@@ -363,7 +363,7 @@ PartitionsWidget::PartitionsWidget() : ContentWidget("Mounts")
   layout->setAlignment(Qt::AlignTop);
   layout->addWidget(lbl_title);
     
-  PartitionUtils::probe(ProbeOpts::UnMounted);
+  PartitionUtils::probe_for_install();
 
   if (PartitionUtils::have_partitions())
   { 

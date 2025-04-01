@@ -69,10 +69,22 @@ enum class ProbeOpts
 class PartitionUtils
 {
 public:
-  // probe all block devices. clears previous probe results.
-  // store partitions, retrieved by partitions(). Only stores
-  // partitions, discards disks.
-  static bool probe(const ProbeOpts opts);
+  // Probe all block devices, storing information for partitions
+  // that are not mounted and are GPT.
+  // This call clears previous probe results.
+  static bool probe_for_install()
+  {
+    return do_probe(ProbeOpts::UnMounted, true);
+  }
+
+  // Probe all block devices, storing information for all partitions,
+  // irrespective of partition type and mount state.
+  // This call clears previous probe results.
+  static bool probe_for_os_discover()
+  {
+    return do_probe(ProbeOpts::All, false);
+  }
+  
   
   static const Partitions& partitions() { return m_parts; }
   static std::size_t num_partitions() { return m_parts.size(); }
@@ -88,6 +100,7 @@ public:
 private:
   using Tree = std::map<std::string, std::vector<std::string>>;
 
+  static bool do_probe(const ProbeOpts opts, const bool gpt_only);
   static Tree create_tree();
 
   static std::tuple<PartitionStatus, Partition> probe_partition(const std::string_view part_dev);

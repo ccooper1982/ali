@@ -53,7 +53,7 @@ private:
   
 
   bool mount();
-  bool do_mount(const std::string_view dev, const std::string_view path, const std::string_view fs);
+  bool do_mount(const std::string_view dev, const std::string_view path, const std::string_view fs, const bool read_only = false);
   bool pacman_strap();
   bool fstab();
   
@@ -63,12 +63,20 @@ private:
   bool set_password(const std::string_view user, const std::string_view pass);
 
   bool boot_loader();
+  bool prepare_grub_probe();
+  void cleanup_grub_probe();
+  
+  
   bool localise();
+  
   bool network();
 
   bool enable_service(const std::string_view name);
 
+  // utils
   bool copy_files(const fs::path& src, const fs::path& dest, const std::vector<std::string_view>& extensions);
+
+  
 };
 
 #endif
