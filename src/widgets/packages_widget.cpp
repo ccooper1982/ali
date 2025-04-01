@@ -156,7 +156,7 @@ PackagesWidget::PackagesWidget() : ContentWidget("Packages")
   }
 
   {
-    m_firmware = SelectPackagesWidget::none_required({"linux-firmware"}, Type::Firmware);
+    m_firmware = SelectPackagesWidget::none_required({"linux-firmware", "linux-firmware-marvell"}, Type::Firmware);
     
     QGroupBox * group_firmware = new QGroupBox("Firmware");
     group_firmware->setLayout(m_firmware->layout());    
