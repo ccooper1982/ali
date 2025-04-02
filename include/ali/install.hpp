@@ -16,16 +16,19 @@ public:
   Install() = default;
   virtual ~Install() = default;
 
-  bool install ();
+  void install ();
 
 signals:
-  void on_stage_start(const QString msg);
-  void on_log(const QString msg);
-  void on_stage_end(const QString msg);
+  void on_stage_start(const QString stage);
+  void on_stage_end(const QString stage);
+  void on_log_info(const QString msg);
+  void on_log_warning(const QString msg);
+  void on_log_critical(const QString msg);
   void on_complete(const bool);
 
 private:
-  void log(const std::string_view msg);
+  void log_info(const std::string_view msg);
+  void log_warning(const std::string_view msg);
   void log_critical(const std::string_view msg);
   void log_stage_start(const std::string_view msg);
   void log_stage_end(const std::string_view msg);
@@ -42,12 +45,12 @@ private:
 
     if (!part_num || parent_dev.empty())
     {
-      log("Cannot get parent device and/or partition number, cannot set partition type. Not an error");
+      log_warning("Cannot get parent device and/or partition number, cannot set partition type. Not an error");
     }
     else
     {
       if (Cmd cmd{part_num, parent_dev}; cmd.execute() != CmdSuccess)
-        log(std::format("Failed to set partition type for {}. This is not an error.", part_dev));
+        log_warning(std::format("Failed to set partition type for {}. This is not an error.", part_dev));
     }
   }
   

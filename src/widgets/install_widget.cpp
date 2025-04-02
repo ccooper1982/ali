@@ -100,14 +100,24 @@ InstallWidget::InstallWidget() : ContentWidget("Install")
     m_log_widget->appendHtml("<b>" + msg + "</b>");
   });
 
-  connect(&m_installer, &Install::on_log, this, [this](const QString msg)
+  connect(&m_installer, &Install::on_stage_end, this, [this](const QString msg)
+  {
+    m_log_widget->appendHtml("<b>" + msg + "</b>");
+  });
+
+  connect(&m_installer, &Install::on_log_info, this, [this](const QString msg)
   {
     m_log_widget->appendPlainText(msg);
   });
 
-  connect(&m_installer, &Install::on_stage_end, this, [this](const QString msg)
+  connect(&m_installer, &Install::on_log_critical, this, [this](const QString msg)
   {
-    m_log_widget->appendHtml("<b>" + msg + "</b>");
+    m_log_widget->appendHtml("<span style=\"background-color: #800517; color:white;\">"+ msg + "</span>");
+  });
+
+  connect(&m_installer, &Install::on_log_warning, this, [this](const QString msg)
+  {
+    m_log_widget->appendHtml("<span style=\"background-color: #CC7722; color:white;\">"+ msg + "</span>");
   });
 
   connect(&m_installer, &Install::on_complete, this, [this](const bool success)
@@ -185,7 +195,11 @@ void InstallWidget::install()
     
     emit on_install_begin();
 
-    m_install_thread = std::move(std::jthread([this](){ m_installer.install(); }));
+    m_install_thread = std::move(std::jthread([this]
+    {
+      m_installer.install();
+      qInfo() << "Install thread done";
+    }));
   }
   catch(const std::exception& e)
   {

@@ -14,32 +14,38 @@ static std::vector<std::string> temp_mounts;
 
 
 
-void Install::log(const std::string_view msg)
+void Install::log_stage_start(const std::string_view stage)
 {
-  emit on_log(QString::fromLocal8Bit(msg.data(), msg.size()));
+  qInfo() << "Stage start: " << stage;
+  emit on_stage_start(QString::fromLocal8Bit(stage.data(), stage.size()));
 }
 
-
-void Install::log_stage_start(const std::string_view msg)
+void Install::log_stage_end(const std::string_view stage)
 {
-  emit on_stage_start(QString::fromLocal8Bit(msg.data(), msg.size()));
+  qInfo() << "Stage end: " << stage;
+  emit on_stage_end(QString::fromLocal8Bit(stage.data(), stage.size()));
 }
-
-
-void Install::log_stage_end(const std::string_view msg)
-{
-  emit on_stage_end(QString::fromLocal8Bit(msg.data(), msg.size()));
-}
-
 
 void Install::log_critical(const std::string_view msg)
 {
   qCritical() << msg;
-  log(msg);
+  emit on_log_critical(QString::fromLocal8Bit(msg.data(), msg.size()));
+}
+
+void Install::log_warning(const std::string_view msg)
+{
+  qWarning() << msg;
+  emit on_log_warning(QString::fromLocal8Bit(msg.data(), msg.size()));
+}
+
+void Install::log_info(const std::string_view msg)
+{
+  qInfo() << msg;
+  emit on_log_info(QString::fromLocal8Bit(msg.data(), msg.size()));
 }
 
 
-bool Install::install ()
+void Install::install ()
 {
   auto exec_stage = [this](std::function<bool(Install&)> f, const std::string_view stage) mutable
   {
@@ -76,8 +82,6 @@ bool Install::install ()
   {
     log_critical("Install encountered an unknown exception");
   }
-
-  return done;
 }
 
 
@@ -93,10 +97,10 @@ bool Install::filesystems()
     return false;
   }
 
-  log("Setting root partition type");
+  log_info("Setting root partition type");
   set_partition_type<SetPartitionAsLinuxRoot>(mounts.root.dev);
   
-  log("Setting boot partition type");
+  log_info("Setting boot partition type");
   set_partition_type<SetPartitionAsEfi>(mounts.boot.dev);
 
   if (mounts.root.create_fs && !create_filesystem(mounts.root.dev, mounts.root.fs))
@@ -108,7 +112,7 @@ bool Install::filesystems()
   // the UI should ensure create_fs is false if home uses root, but sanity check here
   if (mounts.home.dev != mounts.root.dev && mounts.home.create_fs)
   {
-    log("Setting home partition type");
+    log_info("Setting home partition type");
     set_partition_type<SetPartitionAsLinuxHome>(mounts.home.dev);
 
     if (!create_filesystem(mounts.home.dev, mounts.home.fs))
@@ -123,7 +127,7 @@ bool Install::create_filesystem(const std::string_view part_dev, const std::stri
 {
   qDebug() << "Enter";
 
-  log(std::format("Creating {} on {}", fs, part_dev));
+  log_info(std::format("Creating {} on {}", fs, part_dev));
 
   int res{0};
   
@@ -168,32 +172,32 @@ bool Install::mount()
 
     if (PartitionUtils::is_path_mounted(BootMnt.string()))
     {
-      log(std::format("{} is already mounted, unmounting", BootMnt.c_str()));
+      log_info(std::format("{} is already mounted, unmounting", BootMnt.c_str()));
       ::umount(BootMnt.c_str());
     }
 
     if (PartitionUtils::is_path_mounted(RootMnt.string()))
     {
-      log(std::format("{} is already mounted, unmounting", RootMnt.c_str()));
+      log_info(std::format("{} is already mounted, unmounting", RootMnt.c_str()));
       ::umount(RootMnt.c_str());
     }
 
     if (PartitionUtils::is_path_mounted(HomeMnt.string()))
     {
-      log(std::format("{} is already mounted, unmounting", HomeMnt.c_str()));
+      log_info(std::format("{} is already mounted, unmounting", HomeMnt.c_str()));
       ::umount(RootMnt.c_str());
     }
 
     mounted_root = do_mount(mount_data.root.dev, RootMnt.c_str(), mount_data.root.fs);
     mounted_boot = do_mount(mount_data.boot.dev, BootMnt.c_str(), mount_data.boot.fs);
 
-    log(std::format("Mount of {} -> {} : {}", RootMnt.c_str(), mount_data.root.dev, mounted_root ? "Success" : "Fail"));
-    log(std::format("Mount of {} -> {} : {}", BootMnt.c_str(), mount_data.boot.dev, mounted_boot ? "Success" : "Fail"));
+    log_info(std::format("Mount of {} -> {} : {}", RootMnt.c_str(), mount_data.root.dev, mounted_root ? "Success" : "Fail"));
+    log_info(std::format("Mount of {} -> {} : {}", BootMnt.c_str(), mount_data.boot.dev, mounted_boot ? "Success" : "Fail"));
 
     if (mount_data.home.dev != mount_data.root.dev)
     {
       mounted_home = do_mount(mount_data.home.dev, HomeMnt.c_str(), mount_data.home.fs);
-      log(std::format("Mount of {} -> {} : {}", HomeMnt.c_str(), mount_data.home.dev, mounted_home ? "Success" : "Fail"));
+      log_info(std::format("Mount of {} -> {} : {}", HomeMnt.c_str(), mount_data.home.dev, mounted_home ? "Success" : "Fail"));
     }
   }
 
@@ -242,19 +246,15 @@ bool Install::pacman_strap()
   
   const auto cmd_string = create_cmd_string();
 
-  qInfo() << cmd_string;
-  log(cmd_string);
+  log_info(cmd_string);
   
   // intercept missing firmware message from pacstrap
-  
-  bool firmware_warning = false;
-  Command pacstrap {cmd_string, [this, &firmware_warning](const std::string_view out)
+  Command pacstrap {cmd_string, [this](const std::string_view out)
   {    
-    qInfo() << out;
-    log(out);
-    
     if (out.find("Possibly missing firmware for module:") != std::string::npos)
-      firmware_warning = true;
+      log_warning("Possibly missing firmware. This can be fixed post-install");
+    else
+      log_info(out);
   }};
   
   bool ok = true;
@@ -263,8 +263,6 @@ bool Install::pacman_strap()
     log_critical("ERROR: pacstrap failed - manual intervention required");
     ok = false;
   }
-  else if (firmware_warning)
-    log("NOTE: warnings of missing firmware. This can be fixed post-install");
 
   qDebug() << "Leave";
 
@@ -284,11 +282,11 @@ bool Install::swap()
   {
     static const fs::path ZramConfig {RootMnt / "etc/systemd/zram-generator.conf"};
 
-    log("Installing zram generator");
+    log_info("Installing zram generator");
     ChRootCmd cmd{"pacman -Sy --noconfirm zram-generator", [this](const std::string_view output)
     {
       qDebug() << output;
-      log(output);
+      log_info(output);
     }};
 
     if (cmd.execute() == CmdSuccess)
@@ -345,19 +343,19 @@ bool Install::localise()
 {
   const auto locale_data = Widgets::start()->get_data();
 
-  log(std::format("Setting keymap {}", locale_data.keymap));
+  log_info(std::format("Setting keymap {}", locale_data.keymap));
   if (!LocaleUtils::generate_keymap(locale_data.keymap))
   {
     log_critical("Setting key map failed"); // not actually critital, but no "log_error()" yet
   }
 
-  log("Generating locales");
+  log_info("Generating locales");
   if (!LocaleUtils::generate_locale(locale_data.locales, locale_data.locales[0]))
   {
     log_critical("Generating/setting locales failed");
   }
 
-  log("Setting timezone");
+  log_info("Setting timezone");
   if (!LocaleUtils::generate_timezone(locale_data.timezone))
   {
     log_critical("Setting timezone failed");
@@ -378,7 +376,7 @@ bool Install::network()
 
   ChRootCmd hostname_cmd{std::format("echo \"{}\" > /etc/hostname", data.hostname)};
   if (hostname_cmd.execute() != CmdSuccess)
-    log("Failed to set /etc/hostname");
+    log_info("Failed to set /etc/hostname");
 
   // intentionally continuing if hostname is unset
   if (data.copy_config)
@@ -456,7 +454,7 @@ bool Install::user_account()
   if (username.empty())
   {
     user_created = true;
-    log("No user to create");
+    log_info("No user to create");
   }
   else if (!username.empty() && password.empty())
   {
@@ -476,7 +474,7 @@ bool Install::user_account()
 
     if (const int r = useradd.execute(); r != CmdSuccess)
     {
-      log(std::format("User created failed: {}", strerror(r)));
+      log_info(std::format("User created failed: {}", strerror(r)));
     }
     else
     {
@@ -506,12 +504,12 @@ bool Install::add_to_sudoers(const std::string& user)
   static const fs::perms SudoersFilePerms = fs::perms::owner_read | fs::perms::group_read;
   static const fs::path SudoersD = RootMnt / "etc/sudoers.d";
 
-  log("Adding user to sudoers");
+  log_info("Adding user to sudoers");
 
   std::error_code ec;
   if (fs::create_directories(SudoersD, ec); ec.value() != 0)
   {
-    log(std::format("Failed to add user to sudoers: {}", strerror(ec.value())));
+    log_info(std::format("Failed to add user to sudoers: {}", strerror(ec.value())));
     return false;
   }
   else
@@ -535,7 +533,7 @@ bool Install::add_to_sudoers(const std::string& user)
     // set permissions
     if (fs::permissions(sudoers_path, SudoersFilePerms, ec); ec.value() != 0)
     {
-      log(std::format("Failed to add user to sudoers: {}", strerror(ec.value())));
+      log_info(std::format("Failed to add user to sudoers: {}", strerror(ec.value())));
       return false;
     }
     else
@@ -549,7 +547,7 @@ bool Install::add_to_sudoers(const std::string& user)
 bool Install::set_password(const std::string_view user, const std::string_view pass)
 {
   qDebug() << "Enter";
-  log(std::format("Setting password for {}", user));
+  log_info(std::format("Setting password for {}", user));
 
   bool pass_set{false}, pass_valid{false};
 
@@ -588,8 +586,7 @@ bool Install::boot_loader()
 
   ChRootCmd install {"pacman -Sy --noconfirm grub efibootmgr os-prober", [this](const std::string_view out)
   {
-    qInfo() << out;
-    log(out);
+    log_info(out);
   }};
 
   if (r = install.execute(); r != CmdSuccess)
@@ -602,8 +599,7 @@ bool Install::boot_loader()
     
     ChRootCmd grub_install{cmd_init, [this](const std::string_view out)
     {
-      qInfo() << out;
-      log(out);
+      log_info(out);
     }};
 
     if (r = grub_install.execute(); r != CmdSuccess)
@@ -625,8 +621,7 @@ bool Install::boot_loader()
       
       ChRootCmd grub_config{"grub-mkconfig -o /boot/grub/grub.cfg", [this](const std::string_view out)
       {
-        qInfo() << out;
-        log(out);
+        log_info(out);
       }};
 
       if (r = grub_config.execute(); r != CmdSuccess)
@@ -647,7 +642,7 @@ bool Install::boot_loader()
 
 bool Install::prepare_grub_probe()
 {
-  log("Preparing for GRUB os-probe");
+  log_info("Preparing for GRUB os-probe");
 
   // NOTE from arch guide:
   //  "os-prober might not work properly when run in a chroot. Try again after rebooting into the system if you experience this."
@@ -660,12 +655,12 @@ bool Install::prepare_grub_probe()
   else
   {
     updated_cfg = false;
-    log_critical("Failed to update GRUB config file"); // TODO need log_warning()
+    log_warning("Failed to update GRUB config file");
   }
 
   if (updated_cfg)
   {
-    log ("Mounting other partitions");
+    log_info("Mounting other partitions");
 
     // the os-prober uses the mount table to search partitions, so we must mount all applicable partitions
     if (!PartitionUtils::probe_for_os_discover())
@@ -699,13 +694,13 @@ bool Install::prepare_grub_probe()
           
           if (Command cmd{mount_cmd}; cmd.execute() != CmdSuccess)
           {
-            log_critical(std::format("Failed to mount {} -> {}", part.dev, mount_point)); // TODO need log_warning()
+            log_warning(std::format("Failed to mount {} -> {}", part.dev, mount_point)); 
             mounted = false;
             break;
           }
           else
           {
-            log(std::format("Mounted {} -> {}", part.dev, mount_point));
+            log_info(std::format("Mounted {} -> {}", part.dev, mount_point));
             temp_mounts.emplace_back(mount_point);
           }
         }
@@ -723,7 +718,7 @@ void Install::cleanup_grub_probe()
   {
     const auto path = std::format("{}{}", RootMnt.string(), m);
 
-    log(std::format("Unmounting: {}", path));
+    log_info(std::format("Unmounting: {}", path));
 
     Command cmd{std::format("umount -f {}", path)};
     cmd.execute();
@@ -734,7 +729,7 @@ void Install::cleanup_grub_probe()
 // services
 bool Install::enable_service(const std::string_view name)
 {
-  log(std::format("Enabling service {}", name));
+  log_info(std::format("Enabling service {}", name));
 
   ChRootCmd cmd{std::format("systemctl enable {}", name)};
   
