@@ -54,8 +54,8 @@ struct LogWidget : public QPlainTextEdit
     setReadOnly(true);
     setOverwriteMode(false);
     setWordWrapMode(QTextOption::WrapMode::NoWrap);
-    setFixedHeight(550);
-    setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
+    setMinimumHeight(500);
+    setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Preferred);
     setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
   }
@@ -136,7 +136,7 @@ InstallWidget::InstallWidget() : ContentWidget("Install")
 InstallWidget::~InstallWidget()
 {
   // TODO don't need to join install thread, but may need
-  //      a way to cancel Install::install()
+  //      a way to cancel the install
 }
 
 
