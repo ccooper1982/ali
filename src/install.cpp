@@ -58,6 +58,7 @@ bool Install::install ()
     done =  exec_stage(&Install::filesystems, "filesystems") &&
             exec_stage(&Install::mount, "mount") &&
             exec_stage(&Install::pacman_strap, "pacstrap") &&
+            exec_stage(&Install::swap, "swap") &&
             exec_stage(&Install::fstab, "fstab") &&
             exec_stage(&Install::localise, "locale") &&
             exec_stage(&Install::network, "network") &&
@@ -264,6 +265,54 @@ bool Install::pacman_strap()
   }
   else if (firmware_warning)
     log("NOTE: warnings of missing firmware. This can be fixed post-install");
+
+  qDebug() << "Leave";
+
+  return ok;
+}
+
+
+bool Install::swap()
+{
+  qDebug() << "Enter";
+
+  bool ok = true;
+
+  const auto data = Widgets::swap()->get_data();
+
+  if (data.zram_enabled)
+  {
+    static const fs::path ZramConfig {RootMnt / "etc/systemd/zram-generator.conf"};
+
+    log("Installing zram generator");
+    ChRootCmd cmd{"pacman -Sy --noconfirm zram-generator", [this](const std::string_view output)
+    {
+      qDebug() << output;
+      log(output);
+    }};
+
+    if (cmd.execute() == CmdSuccess)
+    {
+      // write the config, keep it simple for now, with values suggested in wiki
+      std::ofstream cfg_file{ZramConfig};
+      cfg_file << "[zram0]\n";
+      cfg_file << "zram-size = min(ram / 2, 4096)\n";
+      cfg_file << "compression-algorithm = zstd";
+    }
+
+    if (ok = fs::exists(ZramConfig) && fs::file_size(ZramConfig); ok)
+    {
+      enable_service("systemd-zram-setup@zram0.service");
+    }
+    else
+    {
+      log_critical("Failed to create zram config") ; // TODO log_warning
+
+      // delete if it exists, rather than leaving a potentially broken configuration
+      if (fs::exists(ZramConfig))
+        fs::remove(ZramConfig);
+    }
+  }
 
   qDebug() << "Leave";
 
@@ -568,6 +617,11 @@ bool Install::boot_loader()
         // not a reason to stop: it's annoying for user but they can still have a working Arch
         log_critical("Failed to setup for grub's os-prober");
       }
+
+      // TODO if multiple kernels installed, can have option to remove the GRUB submenu so switching kernels
+      //      is quicker. Have option for this because some prefer the submenu.
+      //      In /etc/default/grub, append GRUB_SAVE_DEFAULT=true (remember last selection) and
+      //      GRUB_DISABLE_SUBMENU=y (remove submenu)
       
       ChRootCmd grub_config{"grub-mkconfig -o /boot/grub/grub.cfg", [this](const std::string_view out)
       {

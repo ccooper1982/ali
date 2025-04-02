@@ -7,6 +7,7 @@
 #include <ali/widgets/network_widget.hpp>
 #include <ali/widgets/accounts_widget.hpp>
 #include <ali/widgets/packages_widget.hpp>
+#include <ali/widgets/swap_widget.hpp>
 #include <ali/widgets/install_widget.hpp>
 
 
@@ -31,6 +32,12 @@ struct Widgets
   static PartitionsWidget * partitions()
   {
     static auto * w = new PartitionsWidget;
+    return w;
+  }
+
+  static SwapWidget * swap()
+  {
+    static auto * w = new SwapWidget;
     return w;
   }
 
@@ -64,6 +71,7 @@ struct Widgets
     {
       Widgets::start(),
       Widgets::partitions(),
+      Widgets::swap(),
       Widgets::network(),
       Widgets::accounts(),
       Widgets::packages(),

@@ -55,6 +55,7 @@ private:
   bool mount();
   bool do_mount(const std::string_view dev, const std::string_view path, const std::string_view fs, const bool read_only = false);
   bool pacman_strap();
+  bool swap();
   bool fstab();
   
   bool root_account();
