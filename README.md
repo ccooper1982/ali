@@ -17,15 +17,15 @@ The focus is reliability before adding features, such as desktop environments or
 - Locale: keyboard, language, timezone
 - Network: copies live ISO network config (`iwd` and `systemd-networkd`)
 - GRUB: Probe for other OSes (beta, early testing)
-- Validation, prevent install if required
+- Validation: prevent install if required
 
 
 ## Limitations
 There are limitations which will be addressed over the coming weeks:
 
 - Does not manage partitions. You must create partitions first
-- Only tested with `ext4` on `/`
-- No dedicated swap partition
+- Filesystems: only tested with `ext4` on `/`
+- Swap: only option is to enable swap on `zram`
 - Bootloader
   - Only GRUB
 - Packages
@@ -50,7 +50,7 @@ To reflect the real live evironment, a custom Arch live ISO is used, created wit
 - Additional packages are listed at the bottom of the definition [file](https://github.com/ccooper1982/ali/blob/main/archiso/default/packages.x86_64)
 
 The ISO is 1.3GB, compared to 1.2GB for the official ISO. The extra are mostly libraries/modules required for a minimal
-window manager environment. The `ali` executable itself is ~500KB.
+window manager environment. The `ali` executable itself is ~700KB.
 
 The plan is to add an `ali-bin` to the AUR.
 
