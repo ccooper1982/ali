@@ -8,6 +8,7 @@
 #include <ali/widgets/accounts_widget.hpp>
 #include <ali/widgets/packages_widget.hpp>
 #include <ali/widgets/swap_widget.hpp>
+#include <ali/widgets/profile_widget.hpp>
 #include <ali/widgets/install_widget.hpp>
 
 
@@ -53,6 +54,12 @@ struct Widgets
     return w;
   }
 
+  static ProfileWidget * profile()
+  {
+    static auto * w = new ProfileWidget;
+    return w;
+  }
+
   static PackagesWidget * packages()
   {
     static auto * w = new PackagesWidget;
@@ -74,6 +81,7 @@ struct Widgets
       Widgets::swap(),
       Widgets::network(),
       Widgets::accounts(),
+      Widgets::profile(),
       Widgets::packages(),
       Widgets::install()
       // Profile, Audio, Video

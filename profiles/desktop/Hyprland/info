@@ -1,0 +1,38 @@
+This installs Hyprland with a default config: `~/.config/hypr/hyprland.conf`
+
+<br/>
+
+### Keyboard Language
+Hyprland uses a setting in config file, defaulting to `US`:
+
+`input { kb_layout = us }`
+
+<br/>
+
+### Monitors
+```
+monitor=,preferred,auto,auto
+```
+
+<br/>
+
+Format is: `monitor = <name>, <resolution>, <position>, <scale>`
+
+- empty `<name>` uses first found/default
+- Show monitors info: `hyprctl monitors all`
+
+<br/>
+
+### Keybindings 
+
+Defined towards the end of the file, they are the 'Windows' key + another:
+
+<br/>
+
+|Key|Function|App|
+|:---:|:---|:---|
+|E|file manager|dolphin|
+|Q|terminal|kitty|
+|R|launcher|wofi|
+|C|close active window|-|
+|M|exit hyprland|-|

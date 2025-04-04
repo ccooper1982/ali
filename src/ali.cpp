@@ -217,7 +217,7 @@ public:
           m_current = next;
           m_current->show();
 
-          if (m_current->get_nav_name() == Widgets::install()->get_nav_name())
+          if (m_current->is_install_widget())
           {
             // setFocus() so it triggers a validation check
             m_current->setFocus(Qt::FocusReason::ActiveWindowFocusReason);

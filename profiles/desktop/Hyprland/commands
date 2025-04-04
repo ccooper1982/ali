@@ -1,0 +1,2 @@
+systemctl enable sddm.service
+systemctl --user enable --now hyprpolkitagent.service

@@ -139,6 +139,20 @@ struct SysClockSync : public Command
 };
 
 
+struct GetVideoVendor : public Command
+{
+  enum class Vendor { Unknown, Amd, Nvidia, VM };
+
+  GetVideoVendor();
+
+  Vendor get_vendor();
+  
+private:
+  unsigned short n_amd{0};
+  unsigned short n_nvidia{0};
+  unsigned short n_vm{0};
+};
+
 
 // Create filesystem
 template<class FS>

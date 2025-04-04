@@ -1,6 +1,7 @@
 #include <ali/commands.hpp>
 #include <ali/common.hpp>
 #include <iostream>
+#include <functional>
 #include <QDebug>
 
 
@@ -203,7 +204,7 @@ QStringList KeyMaps::get_list()
 {
   if (m_keys.empty())
   {
-    m_keys.reserve(250);
+    m_keys.reserve(250); // `localectl list-keymaps | wc -l` returns 247
 
     execute([this](const std::string_view m)
     {
@@ -220,4 +221,39 @@ QStringList KeyMaps::get_list()
 SysClockSync::SysClockSync() : Command("timedatectl")
 {
 
+}
+
+
+//
+GetVideoVendor::GetVideoVendor() : Command("lshw -C display | grep 'vendor: '")
+{
+
+}
+
+
+GetVideoVendor::Vendor GetVideoVendor::get_vendor()
+{
+  Vendor vendor{Vendor::Unknown};
+
+  const int res = execute([this](const std::string_view out)
+  {
+    if (!out.empty())
+    {
+      n_amd += ::strcasestr(out.data(), "amd") ? 1 : 0;
+      n_nvidia += ::strcasestr(out.data(), "nvidia") ? 1 : 0;
+      n_vm += ::strcasestr(out.data(), "vmware") ? 1 : 0; 
+    }
+  });
+  
+  if (res == CmdSuccess && n_amd + n_nvidia + n_vm == 1)
+  {
+    if (n_amd)
+      vendor = Vendor::Amd;
+    else if (n_nvidia)
+      vendor = Vendor::Nvidia;
+    else
+      vendor = Vendor::VM;
+  }
+
+  return vendor;
 }

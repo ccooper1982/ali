@@ -33,11 +33,13 @@ sources = [
     'src/commands.cpp',
     'src/disk_utils.cpp',
     'src/locale_utils.cpp',
+    'src/profiles.cpp',
     'src/widgets/partitions_widget.cpp',
     'src/widgets/accounts_widget.cpp',
     'src/widgets/packages_widget.cpp',
     'src/widgets/install_widget.cpp',
     'src/widgets/start_widget.cpp',
+    'src/widgets/profile_widget.cpp',
     'src/widgets/widgets.cpp',    
     'src/ali.cpp'
     ]

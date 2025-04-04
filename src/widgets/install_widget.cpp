@@ -161,7 +161,7 @@ void InstallWidget::validate()
   bool valid {false};
 
   // ask each widget, except ourselves, if it's valid
-  for(const auto& widget : Widgets::all())
+  for(const auto widget : Widgets::all())
   {
     if (!widget->is_install_widget())
     {
