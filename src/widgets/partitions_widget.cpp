@@ -439,6 +439,9 @@ QTableWidget * PartitionsWidget::create_table()
 
 bool PartitionsWidget::is_valid()
 {
+  if (!m_mounts_widget)
+    return false;
+    
   const MountData mounts = m_mounts_widget->get_data();
   const bool root_ok = !mounts.root.dev.empty() && !mounts.root.fs.empty();
   const bool boot_ok = !mounts.boot.dev.empty() && !mounts.boot.fs.empty();
