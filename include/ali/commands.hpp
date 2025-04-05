@@ -6,7 +6,7 @@
 #include <functional>
 #include <format>
 #include <ali/disk_utils.hpp>
-
+#include <ali/common.hpp>
 
 inline const int CmdSuccess = 0;
 inline const int CmdFail = -1;
@@ -139,13 +139,11 @@ struct SysClockSync : public Command
 };
 
 
-struct GetVideoVendor : public Command
+struct VideoVendor : public Command
 {
-  enum class Vendor { Unknown, Amd, Nvidia, VM };
+  VideoVendor();
 
-  GetVideoVendor();
-
-  Vendor get_vendor();
+  GpuVendor get_vendor();
   
 private:
   unsigned short n_amd{0};

@@ -225,15 +225,15 @@ SysClockSync::SysClockSync() : Command("timedatectl")
 
 
 //
-GetVideoVendor::GetVideoVendor() : Command("lshw -C display | grep 'vendor: '")
+VideoVendor::VideoVendor() : Command("lshw -C display | grep 'vendor: '")
 {
 
 }
 
 
-GetVideoVendor::Vendor GetVideoVendor::get_vendor()
+GpuVendor VideoVendor::get_vendor()
 {
-  Vendor vendor{Vendor::Unknown};
+  GpuVendor vendor{GpuVendor::Unknown};
 
   const int res = execute([this](const std::string_view out)
   {
@@ -245,15 +245,17 @@ GetVideoVendor::Vendor GetVideoVendor::get_vendor()
     }
   });
   
+  // if more than one identified, leave as unknown
   if (res == CmdSuccess && n_amd + n_nvidia + n_vm == 1)
   {
+    // + intel?
     if (n_amd)
-      vendor = Vendor::Amd;
+      vendor = GpuVendor::Amd;
     else if (n_nvidia)
-      vendor = Vendor::Nvidia;
+      vendor = GpuVendor::Nvidia;
     else
-      vendor = Vendor::VM;
+      vendor = GpuVendor::VM;
   }
-
+  
   return vendor;
 }

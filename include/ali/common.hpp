@@ -7,4 +7,12 @@ namespace fs = std::filesystem;
 
 static inline const fs::path InstallLogPath {"/var/log/ali/install.log"};
 
+enum class GpuVendor
+{
+  Unknown,
+  Amd,
+  Nvidia,
+  VM
+};
+
 #endif

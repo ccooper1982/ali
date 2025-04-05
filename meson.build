@@ -40,6 +40,7 @@ sources = [
     'src/widgets/install_widget.cpp',
     'src/widgets/start_widget.cpp',
     'src/widgets/profile_widget.cpp',
+    'src/widgets/video_widget.cpp',
     'src/widgets/widgets.cpp',    
     'src/ali.cpp'
     ]
