@@ -1,2 +1,2 @@
 systemctl enable sddm.service
-systemctl --user enable hyprpolkitagent.service
+systemctl disable NetworkManager.service

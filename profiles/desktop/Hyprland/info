@@ -1,9 +1,11 @@
 This installs Hyprland with a default config: `~/.config/hypr/hyprland.conf`
 
-<br/>
+This requires further editing to create a fully functioning environment.
 
-### Keyboard Language
-Hyprland uses a setting in config file, defaulting to `US`:
+---
+
+### Keyboard
+The keymap is set in Hyprland's config file, defaulting to `US`:
 
 `input { kb_layout = us }`
 
@@ -25,7 +27,7 @@ Format is: `monitor = <name>, <resolution>, <position>, <scale>`
 
 ### Keybindings 
 
-Defined towards the end of the file, they are the 'Windows' key + another:
+Defined towards the end of the file, they are the Windows/super key + combo:
 
 <br/>
 
