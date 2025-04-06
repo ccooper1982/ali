@@ -1,15 +1,19 @@
 #include <ali/widgets/profile_widget.hpp>
 #include <ali/profiles.hpp>
+#include <ali/packages.hpp>
 
 
 struct ProfileSelect : public QWidget
 {
   ProfileSelect(QWidget * parent = nullptr) : QWidget(parent)
   {
+    m_tty_profiles = Profiles::get_tty_profile_names();
+    m_desktop_profiles = Profiles::get_desktop_profile_names();
+
     m_layout = new QFormLayout;
     
     m_packages = new QPlainTextEdit;
-    m_packages->setMaximumWidth(400);
+    m_packages->setMaximumWidth(450);
     m_packages->setMaximumHeight(150);
     m_packages->setReadOnly(true);
     m_packages->setWordWrapMode(QTextOption::NoWrap);
@@ -33,9 +37,11 @@ struct ProfileSelect : public QWidget
     
     m_profile = new QComboBox;
     m_profile->setFixedWidth(200);
+    set_tty();
     
     connect(m_profile, &QComboBox::currentTextChanged, this, [this](const QString& name)
     {
+      qDebug() << "slot";
       profile_selection_changed(name);
     });
 
@@ -46,10 +52,6 @@ struct ProfileSelect : public QWidget
     
     m_layout->setContentsMargins(0,10,10,10);
     
-
-    m_tty_profiles = Profiles::get_tty_profile_names();
-    m_desktop_profiles = Profiles::get_desktop_profile_names();
-
     setLayout(m_layout);
   }
 
@@ -58,6 +60,9 @@ struct ProfileSelect : public QWidget
   {
     m_profile->clear();
     m_profile->addItems(m_tty_profiles);
+    m_profile->setCurrentIndex(0);
+
+    profile_selection_changed(m_profile->currentText());
   }
 
 
@@ -65,6 +70,9 @@ struct ProfileSelect : public QWidget
   {
     m_profile->clear();
     m_profile->addItems(m_desktop_profiles);
+    m_profile->setCurrentIndex(0);
+
+    profile_selection_changed(m_profile->currentText());
   }
 
   
@@ -79,11 +87,19 @@ private:
   {
     try
     {
+      // empty when we set_tty() or set_desktop() clear
+      // then add. Not an error but get_profile() will throw
+      if (name.isEmpty())
+        return;
+
       m_packages->clear();
       m_commands->clear();
       m_info->clear();
 
       const auto& profile = Profiles::get_profile(name);
+      
+      Packages::set_profile_packages(profile.packages);
+
       m_packages->appendPlainText(profile.packages.join('\n'));
       m_commands->appendPlainText(profile.commands.join('\n'));
       m_info->setMarkdown(profile.info);
@@ -93,6 +109,7 @@ private:
     }
     catch(const std::exception& e)
     {
+      qCritical() << "exception when profile selection: " << name;
       qCritical() << e.what();
     }
   }
@@ -111,12 +128,18 @@ protected:
 
 ProfileWidget::ProfileWidget() : ContentWidget("Profiles")
 {
+  if (!Profiles::read())
+  {
+    QMessageBox::critical(this, "Profiles", "Failed to read profile data");
+  }
+
   m_layout = new QVBoxLayout;
-
-  m_profile_type = new QComboBox;
-  m_profile_type->addItems({"TTY", "Desktop"});
+  
+  m_profile_type = new QComboBox;  
   m_profile_type->setFixedWidth(200);
+  m_profile_type->addItems({"TTY", "Desktop"});
 
+  
   connect(m_profile_type, &QComboBox::currentTextChanged, this, [this](const QString& item)
   {
     if (item == "TTY")
@@ -126,14 +149,8 @@ ProfileWidget::ProfileWidget() : ContentWidget("Profiles")
   });
 
 
-  if (!Profiles::read())
-  {
-    m_profile_type->setEnabled(false);
-    QMessageBox::critical(this, "Profiles", "Failed to read profile data");
-  } 
-
   m_profile_select = new ProfileSelect;
-  
+
   QFormLayout * type_layout = new QFormLayout;
   type_layout->addRow("Type", m_profile_type);
 
@@ -143,39 +160,13 @@ ProfileWidget::ProfileWidget() : ContentWidget("Profiles")
   m_layout->addWidget(m_profile_select);
   m_layout->addStretch(1);
 
-  m_profile_select->set_tty();
-
   setLayout(m_layout);
 }
 
 
-void ProfileWidget::profile_type_changed(const QString& name)
+QString ProfileWidget::get_data() const
 {
-  // QWidget * curr, * next;
-
-  // if (name == "Desktop")
-  // {
-  //   curr = m_tty_profiles;
-  //   next = m_desktop_profiles;
-  // }
-  // else
-  // {
-  //   curr = m_desktop_profiles;
-  //   next = m_tty_profiles;
-  // }
-
-  // if (curr && next)
-  // {
-  //   m_layout->replaceWidget(curr, next);
-  //   curr->hide();
-  //   next->show();
-  // }
-}
-
-
-Profile ProfileWidget::get_data() const
-{
-  return Profiles::get_profile(m_profile_select->get_profile_name());
+  return m_profile_select->get_profile_name();
 }
 
 

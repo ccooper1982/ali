@@ -1,5 +1,6 @@
 #include <ali/widgets/video_widget.hpp>
 #include <ali/commands.hpp>
+#include <ali/packages.hpp>
 #include <QFormLayout>
 #include <QVBoxLayout>
 #include <QGroupBox>
@@ -64,7 +65,7 @@ VideoWidget::VideoWidget() : ContentWidget("Video")
   QFormLayout * layout = new QFormLayout;
   
   m_vendor = new QComboBox;
-  m_vendor->addItems({"Nvidia", "AMD", "VM"});  // TODO intel
+  m_vendor->addItems({"", "Nvidia", "AMD", "VM"});  // TODO intel
   m_vendor->setMaximumWidth(175);
 
   m_source_model = new QComboBox;
@@ -88,6 +89,8 @@ VideoWidget::VideoWidget() : ContentWidget("Video")
 
     m_packages->clear();
     m_packages->insertItems(0, packages);
+
+    Packages::set_video_packages(packages);
   });
 
 
@@ -107,7 +110,7 @@ void VideoWidget::get_vendor()
   m_video_vendor = video_cmd.get_vendor();
 
   qDebug() << "GPU vendor: " << VendorToName[m_video_vendor];
-  
+
   m_vendor->setCurrentText(VendorToName[m_video_vendor]);
 
   // force update of UI
@@ -117,20 +120,23 @@ void VideoWidget::get_vendor()
 
 void VideoWidget::vendor_changed(const QString& vendor)
 {
-  m_video_vendor = NameToVendor[vendor];
-
   m_source_model->clear();
 
-  if (vendor == "Nvidia")
-    m_source_model->addItems({"Open Source", "Nvidia Open", "Nvidia Propriatory"});
-  else if (vendor == "AMD")
-    m_source_model->addItems({"Open Source"});
-  else if (vendor == "VM")
-    m_source_model->addItems({"Open Source"});
+  if (!vendor.isEmpty())
+  {
+    m_video_vendor = NameToVendor[vendor];
+
+    if (vendor == "Nvidia")
+      m_source_model->addItems({"Open Source", "Nvidia Open", "Nvidia Propriatory"});
+    else if (vendor == "AMD")
+      m_source_model->addItems({"Open Source"});
+    else if (vendor == "VM")
+      m_source_model->addItems({"Open Source"});
+  }
 }
 
 
 bool VideoWidget::is_valid()
 {
-  return false;
+  return true;
 }

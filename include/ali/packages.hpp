@@ -8,6 +8,14 @@
 #include <QDebug>
 
 
+// // unused for now
+// enum class PackageStatus
+// {
+//   Ok,
+//   Conflict 
+// };
+
+
 
 struct Package
 {
@@ -16,13 +24,6 @@ struct Package
   }
 
   QString name;
-};
-
-
-enum class PackageStatus
-{
-  Ok,
-  Conflict // unused for now
 };
 
 struct PackageCmp
@@ -40,18 +41,24 @@ using PackageSet = std::set<Package, PackageCmp>;
 class Packages
 {
 public:
-  static void add_kernel(const QString& name) { return add(name, m_kernels); }
+  static void add_kernel(const QString& name) { add(name, m_kernels); }
   static void remove_kernel(const QString& name) { remove(name, m_kernels); }
 
-  static void add_required(const QString& name)  { return add(name, m_required); }
+  static void add_required(const QString& name)  { add(name, m_required); }
   static void remove_required(const QString& name)  { remove(name, m_required); }
 
-  static void add_firmware(const QString& name)  { return add(name, m_firmware); }
+  static void add_firmware(const QString& name)  { add(name, m_firmware); }
   static void remove_firmware(const QString& name)  { remove(name, m_firmware); };
+
+  static void set_profile_packages(const QStringList& names) { set(names, m_profile); }
+  static void set_video_packages(const QStringList& names) { set(names, m_video); }
+
 
   static const PackageSet& kernels() { return m_kernels; }
   static const PackageSet& required() { return m_required; }
   static const PackageSet& firmware() { return m_firmware; }
+  static const PackageSet& profile() { return m_profile; }
+  static const PackageSet& video() { return m_video; }
   
   static void dump_kernels (QDebug& q) { dump(q, m_kernels); }
   static void dump_required (QDebug& q) { dump(q, m_required); }
@@ -64,11 +71,14 @@ private:
 
   static void add(const QString& name, PackageSet& ps)
   {
-    //PackageStatus st {PackageStatus::Ok};
     ps.emplace(name);
-    //return st;
   }
 
+  static void set(const QStringList& names, PackageSet& ps)
+  {
+    ps.clear();
+    ps.insert(names.cbegin(), names.cend());
+  }
 
   static void remove (const QString& name, PackageSet& ps)
   {
@@ -92,6 +102,8 @@ private:
   static PackageSet m_kernels;
   static PackageSet m_required;
   static PackageSet m_firmware;
+  static PackageSet m_profile;  // packages for the profile
+  static PackageSet m_video;    // packages for the video/gpu
 };
 
 

@@ -24,10 +24,8 @@ bool Profiles::read()
 
   qInfo() << "Profiles location: " << (base_dir / ProfilesPath).string();
   
-  const bool done = read_profiles(base_dir / DesktopProfilesPath, m_desktop_profiles) &&
-                    read_profiles(base_dir / TtyProfilesPath, m_tty_profiles);
-  
-  return done;
+  return read_profiles(base_dir / DesktopProfilesPath, m_desktop_profiles) &&
+         read_profiles(base_dir / TtyProfilesPath, m_tty_profiles);
 }
 
 
@@ -57,7 +55,7 @@ bool Profiles::read_profiles(const fs::path& dir, std::map<QString, Profile>& ma
       }
     }
 
-    qDebug() << "Have " << map.size() << " profiles";
+    qInfo() << "Have " << map.size() << " profiles";
   }
   catch(const std::exception& e)
   {

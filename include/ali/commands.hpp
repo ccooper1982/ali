@@ -152,6 +152,17 @@ private:
 };
 
 
+struct CommandAsUser : public ChRootCmd
+{
+  CommandAsUser(const std::string_view user, const std::string_view cmd) : ChRootCmd(std::format("su -c {} {}", cmd, user))
+  {
+
+  }
+};
+
+
+
+
 // Create filesystem
 template<class FS>
 struct CreateFilesystem : public Command

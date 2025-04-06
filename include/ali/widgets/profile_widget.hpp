@@ -15,11 +15,8 @@ struct ProfileWidget : public ContentWidget
 
   virtual bool is_valid() override;
 
-  Profile get_data() const;
+  QString get_data() const;
 
-private:
-
-  void profile_type_changed(const QString& name);
 
 private:
   QVBoxLayout * m_layout;  

@@ -2,6 +2,7 @@
 #include <ali/disk_utils.hpp>
 #include <ali/locale_utils.hpp>
 #include <ali/packages.hpp>
+#include <ali/profiles.hpp>
 #include <ali/widgets/widgets.hpp>
 #include <sstream>
 #include <string>
@@ -9,6 +10,7 @@
 #include <sys/mount.h>
 #include <QDebug>
 
+// temp mounts: partitions are mounted before running GRUB's os-prober
 static const fs::path TmpMountPath {"/tmp/ali/mnt"};
 static std::vector<std::string> temp_mounts;
 
@@ -56,23 +58,30 @@ void Install::install ()
     log_stage_end(std::format("{} - {}", stage, ok ? "Success" : "Fail"));
     return ok;
   };
-
-
-  bool done = false;
+  
   try
   {
-    done =  exec_stage(&Install::filesystems, "filesystems") &&
-            exec_stage(&Install::mount, "mount") &&
-            exec_stage(&Install::pacman_strap, "pacstrap") &&
-            exec_stage(&Install::swap, "swap") &&
-            exec_stage(&Install::fstab, "fstab") &&
-            exec_stage(&Install::localise, "locale") &&
-            exec_stage(&Install::network, "network") &&
-            exec_stage(&Install::root_account, "root account") &&
-            exec_stage(&Install::user_account, "user account") &&
-            exec_stage(&Install::boot_loader, "bootloader");
+    const bool minimal =  exec_stage(&Install::filesystems, "filesystems") &&
+                          exec_stage(&Install::mount, "mount") &&
+                          exec_stage(&Install::pacman_strap, "pacstrap") &&
+                          exec_stage(&Install::swap, "swap") &&
+                          exec_stage(&Install::fstab, "fstab") &&
+                          exec_stage(&Install::localise, "locale") &&
+                          exec_stage(&Install::network, "network") &&
+                          exec_stage(&Install::root_account, "root account") &&
+                          exec_stage(&Install::user_account, "user account") &&
+                          exec_stage(&Install::boot_loader, "bootloader");
+    
+    emit on_complete(minimal ? CompleteStatus::MinimalSuccess : CompleteStatus::MinimalFail);
 
-    emit on_complete(done);
+    if (minimal)
+    {
+      // TODO additional packages
+      const bool extra =  exec_stage(&Install::profile, "profile") &&
+                          exec_stage(&Install::gpu, "video");
+
+      emit on_complete(extra ? CompleteStatus::ProfileSuccess : CompleteStatus::ProfileFail);
+    }
   }
   catch(const std::exception& e)
   {
@@ -640,6 +649,8 @@ bool Install::boot_loader()
 }
 
 
+//  NOTE: mounting is not done within chroot, and os-prober reads the mtable,
+//        Rethink.
 bool Install::prepare_grub_probe()
 {
   log_info("Preparing for GRUB os-probe");
@@ -681,7 +692,7 @@ bool Install::prepare_grub_probe()
       unsigned int i = 0;
       for (const auto& part : parts)
       {
-        // partition can't contain OS if: it's EFI; has no filesystem;
+        // partition can't contain OS if: it's EFI or has no filesystem.
         // and we don't want mount any of the partitions of the installed Arch
         if (!part.is_efi && !part.fs_type.empty() &&  part.dev != mount_data.boot.dev &&
                                                       part.dev != mount_data.root.dev && 
@@ -726,7 +737,63 @@ void Install::cleanup_grub_probe()
 }
 
 
-// services
+bool Install::gpu()
+{
+  const auto packages = Packages::video();
+
+  log_info(std::format("Installing video packages"));
+  
+  if (!pacman_install(packages))
+  {
+    log_critical("Video packages install failed, your GPU may be misconfigured");
+    return false;
+  }
+  return true;
+}
+
+
+// profile
+bool Install::profile()
+{
+  bool ok{true};
+
+  // get the name of the profile from the widget, which has already added the required packages
+  // to the Packages set, but we get the commands from the Profile
+  const auto profile_name = Widgets::profile()->get_data();
+  const auto profile_packages = Packages::profile();
+  const auto profile_commands = Profiles::get_profile(profile_name).commands;
+
+  log_info(std::format("Applying profile {}: {} packages, {} commands", profile_name.toStdString(),
+                                                                        profile_packages.size(),
+                                                                        profile_commands.size()));
+
+  if (pacman_install(profile_packages))
+  {
+    for (QStringList::size_type i = 0 ; i < profile_commands.size() ; ++i)
+    {
+      const auto cmd = profile_commands[i].toStdString();
+
+      log_info(cmd);
+
+      ChRootCmd install {cmd, [this](const std::string_view out)
+      {
+        log_info(out);
+      }};
+
+      if (install.execute() != CmdSuccess)
+      {
+        // we may as well continue
+        log_critical("Command failed");
+        ok = false;
+      }
+    }
+  }
+
+  return ok;
+}
+
+
+// useful
 bool Install::enable_service(const std::string_view name)
 {
   log_info(std::format("Enabling service {}", name));
@@ -741,7 +808,6 @@ bool Install::enable_service(const std::string_view name)
 }
 
 
-// useful
 bool Install::copy_files(const fs::path& src, const fs::path& dest, const std::vector<std::string_view>& extensions)
 {
   auto is_ext = [&extensions](const fs::path& src_ext)
@@ -766,8 +832,9 @@ bool Install::copy_files(const fs::path& src, const fs::path& dest, const std::v
     {
       if (entry.is_regular_file() && is_ext(entry.path().extension()))
       {
-        if (fs::copy(entry.path(), dest, ec); ec)
+        if (fs::copy(entry.path(), dest, fs::copy_options::overwrite_existing, ec); ec)
         {
+          qCritical() << ec.message();
           ok = false;
           break;
         }
@@ -780,4 +847,28 @@ bool Install::copy_files(const fs::path& src, const fs::path& dest, const std::v
 
     return ok;
   }
+}
+
+
+bool Install::pacman_install(const PackageSet& packages)
+{
+  std::stringstream ss;
+  ss << "pacman -S --noconfirm " << packages;
+
+  const auto install_cmd = ss.str();
+
+  qInfo() << install_cmd;
+
+  ChRootCmd install {install_cmd, [this](const std::string_view out)
+  {
+    log_info(out);
+  }};
+
+  if (const int r = install.execute(); r != CmdSuccess)
+  {
+    log_critical(std::format("pacman install of packages failed with code: {}", r));
+    return false;
+  }
+
+  return true;
 }

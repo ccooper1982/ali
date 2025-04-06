@@ -5,14 +5,22 @@
 #include <QString>
 #include <QObject>
 #include <ali/commands.hpp>
+#include <ali/packages.hpp>
+
+
+enum class CompleteStatus
+{
+  MinimalFail,
+  ProfileFail,
+  MinimalSuccess,
+  ProfileSuccess
+};
 
 class Install : public QObject
 {
   Q_OBJECT
 
 public:
-  //using ProgressHandler = std::function<void(const std::string_view&)>;
-
   Install() = default;
   virtual ~Install() = default;
 
@@ -24,7 +32,7 @@ signals:
   void on_log_info(const QString msg);
   void on_log_warning(const QString msg);
   void on_log_critical(const QString msg);
-  void on_complete(const bool);
+  void on_complete(const CompleteStatus);
 
 private:
   void log_info(const std::string_view msg);
@@ -70,17 +78,17 @@ private:
   bool prepare_grub_probe();
   void cleanup_grub_probe();
   
-  
   bool localise();
   
   bool network();
 
-  bool enable_service(const std::string_view name);
+  bool gpu();
+  bool profile();
 
   // utils
+  bool enable_service(const std::string_view name);
   bool copy_files(const fs::path& src, const fs::path& dest, const std::vector<std::string_view>& extensions);
-
-  
+  bool pacman_install(const PackageSet& packages);
 };
 
 #endif

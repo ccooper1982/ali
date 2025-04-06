@@ -10,7 +10,7 @@ static const QString waffle_preinstall = R"!(### Install
 )!";
 
 
-static const QString waffle_postinstall_ok = R"!(# Complete
+static const QString waffle_install_profile_ok = R"!(# Complete
 
 Full details:
 - `/var/log/ali/install.log`
@@ -24,14 +24,35 @@ Full details:
 )!";
 
 
-static const QString waffle_postinstall_fail = R"!(# Fail
+static const QString waffle_install_profile_fail = R"!(# Fail
 
 Full details:
 - `/var/log/ali/install.log`
- 
-The installed will likely fail to boot if the failure occured during
-any of:
-- mount, pacstrap, fstab, arch-choot, bootloader
+
+The installed system should boot but the profile (desktop environment)
+may not start correctly or there may be missing packages.
+
+---
+  
+)!";
+
+
+static const QString waffle_install_min_ok = R"!(
+The minimal has installed successfully to boot. 
+
+Now installing profile packages.
+
+---
+
+)!";
+
+
+static const QString waffle_install_min_fail = R"!(# Fail
+
+Full details:
+- `/var/log/ali/install.log`
+
+The system may not boot if you restart.
 
 To fix the issue in the **live ISO**, you can return to the terminal.
 
@@ -41,10 +62,11 @@ during install (see log below):
 `arch-chroot /mnt`
 
 See Arch Guide to troubleshoot.
-  
+
 ---
   
 )!";
+
 
 
 struct LogWidget : public QPlainTextEdit
@@ -120,18 +142,32 @@ InstallWidget::InstallWidget() : ContentWidget("Install")
     m_log_widget->appendHtml("<span style=\"background-color: #CC7722; color:white;\">"+ msg + "</span>");
   });
 
-  connect(&m_installer, &Install::on_complete, this, [this](const bool success)
+  connect(&m_installer, &Install::on_complete, this, [this](const CompleteStatus state)
   {
-    if (success)
+    switch (state)
     {
-      m_btn_install->hide();
-      m_lbl_waffle->setText(waffle_postinstall_ok);
-    }
-    else
-    {
-      m_btn_install->setEnabled(true);
-      m_btn_install->setText("Install");
-      m_lbl_waffle->setText(waffle_postinstall_fail);
+      using enum CompleteStatus;
+
+      case MinimalSuccess:
+        m_btn_install->hide();
+        m_lbl_waffle->setText(waffle_install_min_ok);
+      break;
+
+      case MinimalFail:
+        m_btn_install->setEnabled(true);
+        m_btn_install->setText("Install");
+        m_lbl_waffle->setText(waffle_install_min_fail);
+      break;
+
+      case ProfileSuccess:
+        m_btn_install->hide();
+        m_lbl_waffle->setText(waffle_install_profile_ok);
+      break;
+
+      case ProfileFail:
+        m_btn_install->hide();
+        m_lbl_waffle->setText(waffle_install_profile_fail);
+      break;
     }
 
     emit on_install_end();
