@@ -151,23 +151,23 @@ bool PlatformSize::platform_file_exist() const
 
 
 // CPU vendor
-CpuVendor::CpuVendor() :
-  Command("cat /proc/cpuinfo | grep \"^model name\"", std::bind_front(&CpuVendor::on_output, std::ref(*this)))
+GetCpuVendor::GetCpuVendor() :
+  Command("cat /proc/cpuinfo | grep \"^model name\"", std::bind_front(&GetCpuVendor::on_output, std::ref(*this)))
 {
 
 }
 
-void CpuVendor::on_output(const std::string_view line)
+void GetCpuVendor::on_output(const std::string_view line)
 {
   if (line.find("AMD") != std::string::npos)
-    m_vendor = Vendor::Amd;
+    m_vendor = CpuVendor::Amd;
   else if (line.find("Intel") != std::string::npos)
-    m_vendor = Vendor::Intel;
+    m_vendor = CpuVendor::Intel;
 }
 
-CpuVendor::Vendor CpuVendor::get_vendor ()
+CpuVendor GetCpuVendor::get_vendor ()
 {
-  return execute(1) == CmdSuccess ? m_vendor : Vendor::None;
+  return execute(1) == CmdSuccess ? m_vendor : CpuVendor::None;
 }
 
 

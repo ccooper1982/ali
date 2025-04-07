@@ -92,20 +92,18 @@ private:
 };
 
 
-struct CpuVendor : public Command
+struct GetCpuVendor : public Command
 {
-  enum class Vendor { None, Amd, Intel };
-
-  CpuVendor() ;
+  GetCpuVendor() ;
 
   void on_output(const std::string_view line);
 
-  Vendor get_vendor ();
+  CpuVendor get_vendor ();
 
   
 
 private:
-  Vendor m_vendor {Vendor::None};
+  CpuVendor m_vendor {CpuVendor::None};
 };
 
 
@@ -152,15 +150,53 @@ private:
 };
 
 
-struct CommandAsUser : public ChRootCmd
+struct GetShellPath : public ChRootCmd
 {
-  CommandAsUser(const std::string_view user, const std::string_view cmd) : ChRootCmd(std::format("su -c {} {}", cmd, user))
+  // TODO or use: pacman -Qo <shell>
+  GetShellPath(const std::string_view shell_name) :
+    ChRootCmd(std::format("chsh -l"), std::bind_front(&GetShellPath::on_output, std::ref(*this))),
+    m_shell_name(shell_name)
+  {
+
+  }
+
+  void on_output (const std::string_view entry)
+  {
+    if (entry.empty() || m_shell_name.empty())
+      return;
+
+    // TODO check if std::filesystem has a way to resolve target path of a link
+    if (!fs::is_symlink(fs::path{entry}))
+    {
+      if (const auto perms = fs::status(entry).permissions(); static_cast<int>(perms & fs::perms::owner_exec))
+      {
+        if (fs::path{entry}.stem() == fs::path{m_shell_name})
+          m_shell_path = entry;
+      }
+    }
+  }
+
+  fs::path get_path()
+  {
+    if (m_shell_path.empty())
+      execute();
+
+    return m_shell_path;
+  }
+
+private:
+  fs::path m_shell_path;
+  std::string_view m_shell_name;
+};
+
+
+struct SetShell : public ChRootCmd
+{
+  SetShell(const fs::path path, const std::string_view user) : ChRootCmd(std::format("chsh -s {} {}", path.string(), user))
   {
 
   }
 };
-
-
 
 
 // Create filesystem

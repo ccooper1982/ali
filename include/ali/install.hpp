@@ -11,9 +11,9 @@
 enum class CompleteStatus
 {
   MinimalFail,
-  ProfileFail,
   MinimalSuccess,
-  ProfileSuccess
+  ExtraFail,
+  ExtraSuccess
 };
 
 class Install : public QObject
@@ -73,6 +73,8 @@ private:
   bool user_account();
   bool add_to_sudoers(const std::string& user);
   bool set_password(const std::string_view user, const std::string_view pass);
+
+  bool shell();
 
   bool boot_loader();
   bool prepare_grub_probe();

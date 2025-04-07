@@ -14,7 +14,7 @@
 
 
 
-enum class Type { Kernel, Firmware, Required };
+enum class Type { Kernel, Firmware, Required, Important, Shell };
 
 
 struct SelectPackagesWidget : public QWidget
@@ -69,6 +69,18 @@ struct SelectPackagesWidget : public QWidget
 
         case Firmware:
           checked ? Packages::add_firmware(val) : Packages::remove_firmware(val);
+        break;
+
+        case Important:
+          checked ? Packages::add_important({val}) : Packages::remove_important({val});
+        break;
+
+        case Shell:
+          Packages::set_shell(val);
+        break;
+
+        default:
+          // n/a
         break;
       }
     };
@@ -130,13 +142,13 @@ PackagesWidget::PackagesWidget() : ContentWidget("Packages")
   QVBoxLayout * layout = new QVBoxLayout;
   layout->setAlignment(Qt::AlignTop);
 
-  CpuVendor cpu_vendor_cmd;
+  GetCpuVendor cpu_vendor_cmd;
 
-  const CpuVendor::Vendor cpu_vendor = cpu_vendor_cmd.get_vendor();
-  const QString cpu_ucode = cpu_vendor == CpuVendor::Vendor::Amd ? "amd-ucode" : "intel-ucode";
+  const CpuVendor cpu_vendor = cpu_vendor_cmd.get_vendor();
+  const QString cpu_ucode = cpu_vendor == CpuVendor::Amd ? "amd-ucode" : "intel-ucode";
 
   {
-    m_required = SelectPackagesWidget::all_required({"base", cpu_ucode, "sudo", "iwd"}, Type::Required);
+    m_required = SelectPackagesWidget::all_required({"base", "iwd"}, Type::Required);
     
     QGroupBox * group_required = new QGroupBox("Required");
     group_required->setLayout(m_required->layout());    
@@ -163,16 +175,24 @@ PackagesWidget::PackagesWidget() : ContentWidget("Packages")
 
     layout->addWidget(group_firmware);
   }
-
-  // TODO removed: replace with user-typed package names
-  // { 
-  //   m_recommended = SelectPackagesWidget::none_required({{"nano",true}, {"git",false}});
+  
+  { 
+    m_important = SelectPackagesWidget::none_required({{"sudo",true}, {cpu_ucode, true}}, Type::Important);
     
-  //   QGroupBox * group_recommended = new QGroupBox("Recommended");
-  //   group_recommended->setLayout(m_recommended->layout());    
+    QGroupBox * group_important = new QGroupBox("Important");
+    group_important->setLayout(m_important->layout());    
 
-  //   layout->addWidget(group_recommended);
-  // }
+    layout->addWidget(group_important);
+  }
+
+  {
+    m_shell = SelectPackagesWidget::one_required({"bash", "zsh", "ksh", "fish", "nushell"}, Type::Shell);
+    
+    QGroupBox * group_shell = new QGroupBox("Shell");
+    group_shell->setLayout(m_shell->layout());    
+
+    layout->addWidget(group_shell);
+  }
   
   setLayout(layout);
 }

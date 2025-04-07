@@ -10,7 +10,7 @@ static const QString waffle_preinstall = R"!(### Install
 )!";
 
 
-static const QString waffle_install_profile_ok = R"!(# Complete
+static const QString waffle_install_extra_ok = R"!(# Complete
 
 Full details:
 - `/var/log/ali/install.log`
@@ -24,7 +24,7 @@ Full details:
 )!";
 
 
-static const QString waffle_install_profile_fail = R"!(# Fail
+static const QString waffle_install_extra_fail = R"!(# Fail
 
 Full details:
 - `/var/log/ali/install.log`
@@ -144,6 +144,8 @@ InstallWidget::InstallWidget() : ContentWidget("Install")
 
   connect(&m_installer, &Install::on_complete, this, [this](const CompleteStatus state)
   {
+    bool enable_nav {false};
+
     switch (state)
     {
       using enum CompleteStatus;
@@ -154,23 +156,29 @@ InstallWidget::InstallWidget() : ContentWidget("Install")
       break;
 
       case MinimalFail:
-        m_btn_install->setEnabled(true);
+        enable_nav = true;
+        m_btn_install->setEnabled(true);        
         m_btn_install->setText("Install");
         m_lbl_waffle->setText(waffle_install_min_fail);
       break;
 
-      case ProfileSuccess:
+      case ExtraSuccess:
         m_btn_install->hide();
-        m_lbl_waffle->setText(waffle_install_profile_ok);
+        m_lbl_waffle->setText(waffle_install_extra_ok);
       break;
 
-      case ProfileFail:
+      case ExtraFail:
         m_btn_install->hide();
-        m_lbl_waffle->setText(waffle_install_profile_fail);
+        m_lbl_waffle->setText(waffle_install_extra_fail);
+      break;
+
+      default:
+        // n/a
       break;
     }
 
-    emit on_install_end();
+    if (enable_nav)
+      emit on_install_end();
   });
 
   #ifdef ALI_PROD

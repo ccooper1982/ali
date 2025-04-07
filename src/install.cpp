@@ -59,6 +59,10 @@ void Install::install ()
     return ok;
   };
   
+  // TODO should probably have: exec_required() and exec_can_fail()
+  //      because minimal operations must all suceed, but 'extra' can
+  //      fail, so no need to return bool type
+
   try
   {
     const bool minimal =  exec_stage(&Install::filesystems, "filesystems") &&
@@ -76,11 +80,17 @@ void Install::install ()
 
     if (minimal)
     {
+      // if any of these fail, they still return true because it is not a show stopper,
+      // the installed system should boot, but not into what the user expects
+      
       // TODO additional packages
-      const bool extra =  exec_stage(&Install::profile, "profile") &&
+
+      // shell is extra because 'bash' is installed as part of 'base'
+      const bool extra =  exec_stage(&Install::shell, "shell") &&
+                          exec_stage(&Install::profile, "profile") &&
                           exec_stage(&Install::gpu, "video");
 
-      emit on_complete(extra ? CompleteStatus::ProfileSuccess : CompleteStatus::ProfileFail);
+      emit on_complete(extra ? CompleteStatus::ExtraSuccess : CompleteStatus::ExtraFail);
     }
   }
   catch(const std::exception& e)
@@ -235,10 +245,12 @@ bool Install::do_mount(const std::string_view dev, const std::string_view path, 
 
 
 // pacstrap
+/// This only installs required, kernels, firmware and important,
+/// i.e. packages that are required/important to a useful bootable Arch
 bool Install::pacman_strap()
 {
   qDebug() << "Enter";
-
+  
   auto create_cmd_string = []()
   {
     // pacstrap -K <root_mount> <package_list>
@@ -248,6 +260,7 @@ bool Install::pacman_strap()
     cmd_string << Packages::required();
     cmd_string << Packages::kernels();
     cmd_string << Packages::firmware();
+    cmd_string << Packages::important();
 
     return cmd_string.str();
   };
@@ -737,17 +750,63 @@ void Install::cleanup_grub_probe()
 }
 
 
+// shell
+bool Install::shell()
+{
+  qDebug() << "Enter";
+
+  const auto created_user = Widgets::accounts()->user_username();
+  const auto user = created_user.empty() ? "root" : created_user;
+  
+  // The Packages permits multiple shells, but the UI and this function only installs one
+  const auto selected_shells = Packages::shells();
+
+  if (selected_shells.contains(Package{"bash"}))
+  {
+    log_info("bash selected, which is the default. Nothing to do");
+  }
+  else if (!selected_shells.empty()) // sanity
+  {
+    const auto shell_name = selected_shells.cbegin()->name.toStdString();
+
+    log_info(std::format("Installing {}", shell_name));
+
+    if (pacman_install(selected_shells))
+    {
+      GetShellPath get_cmd{shell_name};
+      if (const auto path = get_cmd.get_path(); path.empty())
+        log_warning("Failed to get path for installed shell, can't change your shell. But it is installed");
+      else
+      {
+        log_info(std::format("Changing shell for {} to {}", user, path.string()));
+
+        SetShell set_cmd{path, user};
+        if (set_cmd.execute() != CmdSuccess)
+          log_warning("Failed to change shell, but it is installed.");
+      }
+    }
+  }
+
+  qDebug() << "Leave";
+  
+  // can fail, but not a reason to stop. 
+  return true; 
+}
+
+
 bool Install::gpu()
 {
-  const auto packages = Packages::video();
+  qDebug() << "Enter";
 
   log_info(std::format("Installing video packages"));
-  
-  if (!pacman_install(packages))
+
+  if (const auto packages = Packages::video(); !pacman_install(packages))
   {
-    log_critical("Video packages install failed, your GPU may be misconfigured");
-    return false;
+    log_critical("Video packages install failed");
   }
+
+  qDebug() << "Leave";
+
   return true;
 }
 
@@ -755,7 +814,7 @@ bool Install::gpu()
 // profile
 bool Install::profile()
 {
-  bool ok{true};
+  qDebug() << "Enter";
 
   // get the name of the profile from the widget, which has already added the required packages
   // to the Packages set, but we get the commands from the Profile
@@ -784,12 +843,13 @@ bool Install::profile()
       {
         // we may as well continue
         log_critical("Command failed");
-        ok = false;
       }
     }
   }
 
-  return ok;
+  qDebug() << "Leave";
+
+  return true;
 }
 
 
@@ -810,7 +870,7 @@ bool Install::enable_service(const std::string_view name)
 
 bool Install::copy_files(const fs::path& src, const fs::path& dest, const std::vector<std::string_view>& extensions)
 {
-  auto is_ext = [&extensions](const fs::path& src_ext)
+  auto has_ext = [&extensions](const fs::path& src_ext)
   {
     return std::any_of(extensions.cbegin(), extensions.cend(), [src_ext](const auto ext){ return src_ext == ext; });
   };
@@ -821,7 +881,7 @@ bool Install::copy_files(const fs::path& src, const fs::path& dest, const std::v
   // which is not an error condition
   if (fs::create_directories(dest, ec); !fs::exists(dest))
   {
-    log_critical(std::format("{} does not exist and it failed to create: {}", dest.string(), ec.message()));
+    log_critical(std::format("{} did not exist and create failed: {}", dest.string(), ec.message()));
     return false;
   }
   else
@@ -830,9 +890,11 @@ bool Install::copy_files(const fs::path& src, const fs::path& dest, const std::v
 
     for(const auto& entry : fs::directory_iterator{src})
     {
-      if (entry.is_regular_file() && is_ext(entry.path().extension()))
+      if (entry.is_regular_file() && has_ext(entry.path().extension()))
       {
-        if (fs::copy(entry.path(), dest, fs::copy_options::overwrite_existing, ec); ec)
+        fs::remove(dest, ec);
+
+        if (fs::copy(entry.path(), dest, ec); ec)
         {
           qCritical() << ec.message();
           ok = false;
@@ -841,7 +903,7 @@ bool Install::copy_files(const fs::path& src, const fs::path& dest, const std::v
       }
     }
     
-    // remove any files copied if we have error, so we don't have partial configuration
+    // if error, remove the dest dir and files contained within so we don't have partial configuration
     if (!ok)
       fs::remove_all(dest, ec);
 
@@ -852,6 +914,12 @@ bool Install::copy_files(const fs::path& src, const fs::path& dest, const std::v
 
 bool Install::pacman_install(const PackageSet& packages)
 {
+  if (packages.empty())
+  {
+    log_info("PackageSet is empty");
+    return true;
+  }
+
   std::stringstream ss;
   ss << "pacman -S --noconfirm " << packages;
 

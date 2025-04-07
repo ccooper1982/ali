@@ -19,8 +19,9 @@ struct PackagesWidget : public ContentWidget
 private:
   SelectPackagesWidget * m_required;
   SelectPackagesWidget * m_kernels;
-  SelectPackagesWidget * m_firmware;
-  SelectPackagesWidget * m_recommended;
+  SelectPackagesWidget * m_firmware;  
+  SelectPackagesWidget * m_important;
+  SelectPackagesWidget * m_shell;
 };
 
 

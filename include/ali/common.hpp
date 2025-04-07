@@ -15,4 +15,13 @@ enum class GpuVendor
   VM
 };
 
+  
+enum class CpuVendor
+{
+  None,
+  Amd,
+  Intel
+};
+
+
 #endif

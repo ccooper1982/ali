@@ -106,8 +106,8 @@ bool check_platform_size ()
 
 bool check_cpu_vendor ()
 {
-  CpuVendor cmd;
-  return cmd.get_vendor() != CpuVendor::Vendor::None;
+  GetCpuVendor cmd;
+  return cmd.get_vendor() != CpuVendor::None;
 }
 
 
