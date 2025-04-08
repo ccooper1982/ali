@@ -10,9 +10,24 @@
 #include <QBitArray>
 #include <QtTypes>
 
-#include <iostream> // temp
 
-
+static const QStringList Required =
+{
+  "base",
+  "iwd",
+  "iw",
+  "usb_modeswitch",
+  "usbmuxd",
+  "usbutils",
+  // "dhcpcd",
+  // "dhclient",
+  "reflector",
+  "dmidecode",
+  "e2fsprogs",
+  "gpm",
+  "less",
+  "lshw"
+};
 
 enum class Type { Kernel, Firmware, Required, Important, Shell };
 
@@ -142,13 +157,9 @@ PackagesWidget::PackagesWidget() : ContentWidget("Packages")
   QVBoxLayout * layout = new QVBoxLayout;
   layout->setAlignment(Qt::AlignTop);
 
-  GetCpuVendor cpu_vendor_cmd;
-
-  const CpuVendor cpu_vendor = cpu_vendor_cmd.get_vendor();
-  const QString cpu_ucode = cpu_vendor == CpuVendor::Amd ? "amd-ucode" : "intel-ucode";
 
   {
-    m_required = SelectPackagesWidget::all_required({"base", "iwd"}, Type::Required);
+    m_required = SelectPackagesWidget::all_required(Required, Type::Required);
     
     QGroupBox * group_required = new QGroupBox("Required");
     group_required->setLayout(m_required->layout());    
@@ -177,7 +188,11 @@ PackagesWidget::PackagesWidget() : ContentWidget("Packages")
   }
   
   { 
-    m_important = SelectPackagesWidget::none_required({{"sudo",true}, {cpu_ucode, true}}, Type::Important);
+    GetCpuVendor cpu_vendor_cmd;
+    const CpuVendor cpu_vendor = cpu_vendor_cmd.get_vendor();
+    const QString cpu_ucode = cpu_vendor == CpuVendor::Amd ? "amd-ucode" : "intel-ucode";
+    
+    m_important = SelectPackagesWidget::none_required({{"sudo",true}, {cpu_ucode, true}, {"nano", true}, {"wireless-regdb", true}, {"openssh", true}}, Type::Important);
     
     QGroupBox * group_important = new QGroupBox("Important");
     group_important->setLayout(m_important->layout());    

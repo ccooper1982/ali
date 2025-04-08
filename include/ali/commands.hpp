@@ -147,6 +147,7 @@ private:
   unsigned short n_amd{0};
   unsigned short n_nvidia{0};
   unsigned short n_vm{0};
+  unsigned short n_intel{0};
 };
 
 

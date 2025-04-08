@@ -242,17 +242,19 @@ GpuVendor VideoVendor::get_vendor()
       n_amd += ::strcasestr(out.data(), "amd") ? 1 : 0;
       n_nvidia += ::strcasestr(out.data(), "nvidia") ? 1 : 0;
       n_vm += ::strcasestr(out.data(), "vmware") ? 1 : 0; 
+      n_intel += ::strcasestr(out.data(), "intel") ? 1 : 0;
     }
   });
   
   // if more than one identified, leave as unknown
-  if (res == CmdSuccess && n_amd + n_nvidia + n_vm == 1)
+  if (res == CmdSuccess && n_amd + n_nvidia + n_vm + n_intel == 1)
   {
-    // + intel?
     if (n_amd)
       vendor = GpuVendor::Amd;
     else if (n_nvidia)
       vendor = GpuVendor::Nvidia;
+    else if (n_intel)
+      vendor = GpuVendor::Intel;
     else
       vendor = GpuVendor::VM;
   }

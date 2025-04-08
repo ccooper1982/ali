@@ -12,7 +12,8 @@ enum class GpuVendor
   Unknown,
   Amd,
   Nvidia,
-  VM
+  VM,
+  Intel
 };
 
   

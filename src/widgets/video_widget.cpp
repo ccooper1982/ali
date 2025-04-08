@@ -13,6 +13,7 @@ const static QStringList NvidiaOpen = {"dkms", "nvidia-open", "nvidia-open-dkms"
 const static QStringList NvidiaClosed = {"dkms","nvidia-dkms", "xorg-server", "xorg-xinit"};
 
 const static QStringList AmdOpen = {"libva-mesa-driver", "mesa", "vulkan-radeon", "xf86-video-amdgpu", "xf86-video-ati", "xorg-server", "xorg-xinit"};
+const static QStringList IntelOpen = {/*"libva-mesa-driver",*/ "mesa", "intel-media-driver", "vulkan-intel", "xorg-server", "xorg-xinit"};
 const static QStringList VmOpen = {"mesa", "xf86-video-vmware", "xorg-server", "xorg-xinit"};
 
 
@@ -37,6 +38,9 @@ const static QMap<GpuVendor, Drivers> SourceToDrivers =
     GpuVendor::Amd, Drivers {.drivers = { {"Open Source", AmdOpen} } }
   },
   {
+    GpuVendor::Intel, Drivers {.drivers = { {"Open Source", IntelOpen} } }
+  },
+  {
     GpuVendor::VM, Drivers {.drivers = { {"Open Source", VmOpen} } }
   }
 };
@@ -46,6 +50,7 @@ const static QMap<GpuVendor, QString> VendorToName =
 {
     {GpuVendor::Amd,     "AMD"},
     {GpuVendor::Nvidia,  "Nvidia"},
+    {GpuVendor::Intel,   "Intel"},
     {GpuVendor::VM,      "VM"},
     {GpuVendor::Unknown, "Unknown"}
 };
@@ -54,6 +59,7 @@ const static QMap<QString, GpuVendor> NameToVendor =
 {
     {"AMD",     GpuVendor::Amd},
     {"Nvidia",  GpuVendor::Nvidia},
+    {"Intel",   GpuVendor::Intel},
     {"VM",      GpuVendor::VM},
     {"Unknown", GpuVendor::Unknown}
 };
@@ -65,7 +71,7 @@ VideoWidget::VideoWidget() : ContentWidget("Video")
   QFormLayout * layout = new QFormLayout;
   
   m_vendor = new QComboBox;
-  m_vendor->addItems({"", "Nvidia", "AMD", "VM"});  // TODO intel
+  m_vendor->addItems({"", "Nvidia", "AMD", "Intel", "VM"});
   m_vendor->setMaximumWidth(175);
 
   m_source_model = new QComboBox;
@@ -129,6 +135,8 @@ void VideoWidget::vendor_changed(const QString& vendor)
     if (vendor == "Nvidia")
       m_source_model->addItems({"Open Source", "Nvidia Open", "Nvidia Propriatory"});
     else if (vendor == "AMD")
+      m_source_model->addItems({"Open Source"});
+      else if (vendor == "Intel")
       m_source_model->addItems({"Open Source"});
     else if (vendor == "VM")
       m_source_model->addItems({"Open Source"});
