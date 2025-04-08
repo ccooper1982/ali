@@ -877,8 +877,7 @@ bool Install::copy_files(const fs::path& src, const fs::path& dest, const std::v
 
 
   std::error_code ec;
-  // if directories already exists, create_directories() returns false,
-  // which is not an error condition
+  // if directory already exists, create_directories() returns false, which is not an error condition
   if (fs::create_directories(dest, ec); !fs::exists(dest))
   {
     log_critical(std::format("{} did not exist and create failed: {}", dest.string(), ec.message()));
@@ -888,13 +887,16 @@ bool Install::copy_files(const fs::path& src, const fs::path& dest, const std::v
   {
     bool ok = true;
 
-    for(const auto& entry : fs::directory_iterator{src})
+    for (const auto& entry : fs::directory_iterator{src})
     {
       if (entry.is_regular_file() && has_ext(entry.path().extension()))
       {
-        fs::remove(dest, ec);
+        const auto filename = entry.path().filename();
+        const auto dest_full_path = dest / filename;
+        
+        log_info(std::format("Copy {} to {}", entry.path().string(), dest_full_path.string()));
 
-        if (fs::copy(entry.path(), dest, ec); ec)
+        if (fs::copy_file(entry.path(), dest_full_path, fs::copy_options::overwrite_existing, ec); ec)
         {
           qCritical() << ec.message();
           ok = false;
