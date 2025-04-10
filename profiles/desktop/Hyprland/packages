@@ -9,7 +9,7 @@ polkit-kde-agent
 dolphin
 kitty
 wofi
-networkmanager
+#networkmanager
 dunst
 grim
 slurp

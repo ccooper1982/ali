@@ -1,4 +1,4 @@
 systemctl enable sddm.service
 # the installer installs iwd and enables iwd.service, so disable NetworkManager.service. 
 # The NetworkManager is installed because it is commonly used with in Hyprland (i.e. with waybar).
-systemctl disable NetworkManager.service
+# systemctl disable NetworkManager.service
