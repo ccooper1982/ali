@@ -67,7 +67,7 @@ bool check_commands_exist ()
     "mount", "swapon", "ln", "hwclock", "chpasswd", "passwd", "sgdisk", "useradd"
 
     #ifdef ALI_PROD
-      ,"pacstrap", "genfstab", "arch-chroot"
+      ,"pacstrap", "genfstab", "arch-chroot", "lshw"
     #endif
   };
   
