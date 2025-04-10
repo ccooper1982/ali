@@ -41,7 +41,7 @@ private:
 };
 
 
-// Runs a single command as arch-chroot.
+// Runs a single command as chroot.
 struct ChRootCmd : public Command
 {
   ChRootCmd(const std::string_view cmd) :

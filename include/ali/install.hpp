@@ -42,6 +42,7 @@ private:
   void log_stage_end(const std::string_view msg);
     
   bool filesystems();
+  bool wipe_fs(const std::string_view dev);
   bool create_filesystem(const std::string_view dev, const std::string_view fs);
 
   // TODO not convinced I like this

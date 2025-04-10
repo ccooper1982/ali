@@ -116,29 +116,49 @@ bool Install::filesystems()
     return false;
   }
 
-  log_info("Setting root partition type");
-  set_partition_type<SetPartitionAsLinuxRoot>(mounts.root.dev);
-  
-  log_info("Setting boot partition type");
-  set_partition_type<SetPartitionAsEfi>(mounts.boot.dev);
+  bool root{true}, boot{true}, home{true};
 
-  if (mounts.root.create_fs && !create_filesystem(mounts.root.dev, mounts.root.fs))
-    return false;
-
-  if (mounts.boot.create_fs && !create_filesystem(mounts.boot.dev, mounts.boot.fs))
-    return false;
-
-  // the UI should ensure create_fs is false if home uses root, but sanity check here
-  if (mounts.home.dev != mounts.root.dev && mounts.home.create_fs)
+  // wipefs, set partition type, create new fs for root, boot and home if applicable
+  if (mounts.root.create_fs)
   {
-    log_info("Setting home partition type");
-    set_partition_type<SetPartitionAsLinuxHome>(mounts.home.dev);
-
-    if (!create_filesystem(mounts.home.dev, mounts.home.fs))
-      return false;
+    root = wipe_fs(mounts.root.dev) && create_filesystem(mounts.root.dev, mounts.root.fs);
+    if (root)
+    {
+      log_info("Setting root partition type");
+      set_partition_type<SetPartitionAsLinuxRoot>(mounts.root.dev);
+    }
+  }
+  
+  if (mounts.boot.create_fs)
+  {
+    boot = wipe_fs(mounts.boot.dev) && create_filesystem(mounts.boot.dev, mounts.boot.fs);
+    if (boot)
+    {
+      log_info("Setting boot partition type");
+      set_partition_type<SetPartitionAsEfi>(mounts.boot.dev);
+    }
+  }
+  
+  // the UI should ensure create_fs is false if home uses root, but sanity check here
+  if (mounts.home.create_fs && mounts.home.dev != mounts.root.dev)
+  {
+    home = wipe_fs(mounts.home.dev) && create_filesystem(mounts.home.dev, mounts.home.fs);
+    if (home)
+    {
+      log_info("Setting home partition type");
+      set_partition_type<SetPartitionAsLinuxHome>(mounts.home.dev);  
+    }
   }
 
-  return true;
+  return root && boot && home;
+}
+
+
+bool Install::wipe_fs(const std::string_view dev)
+{
+  log_info(std::format("Wiping filesystem on {}", dev));
+  Command wipe {std::format ("wipefs -a -f {}", dev)};
+  return wipe.execute() == CmdSuccess;
 }
 
 
@@ -170,6 +190,8 @@ bool Install::create_filesystem(const std::string_view part_dev, const std::stri
 
   return created;
 }
+
+
 
 
 // mounting
@@ -365,22 +387,22 @@ bool Install::localise()
 {
   const auto locale_data = Widgets::start()->get_data();
 
-  log_info(std::format("Setting keymap {}", locale_data.keymap));
-  if (!LocaleUtils::generate_keymap(locale_data.keymap))
-  {
-    log_critical("Setting key map failed"); // not actually critital, but no "log_error()" yet
-  }
-
-  log_info("Generating locales");
-  if (!LocaleUtils::generate_locale(locale_data.locales, locale_data.locales[0]))
-  {
-    log_critical("Generating/setting locales failed");
-  }
-
   log_info("Setting timezone");
   if (!LocaleUtils::generate_timezone(locale_data.timezone))
   {
-    log_critical("Setting timezone failed");
+    log_warning("Setting timezone failed");
+  }
+  
+  log_info("Generating locales");
+  if (!LocaleUtils::generate_locale(locale_data.locales, locale_data.locales[0]))
+  {
+    log_warning("Generating/setting locales failed");
+  }
+
+  log_info(std::format("Setting keymap {}", locale_data.keymap));
+  if (!LocaleUtils::generate_keymap(locale_data.keymap))
+  {
+    log_warning("Setting key map failed");
   }
 
   // locale not considered essential, more of an annoyance if it fails
