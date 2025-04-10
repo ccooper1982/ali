@@ -200,6 +200,15 @@ struct SetShell : public ChRootCmd
 };
 
 
+struct SetKeyMap : public ChRootCmd
+{
+  SetKeyMap() : ChRootCmd("systemd-run --machine=archinstall --pipe localectl set-keymap")
+  //SetKeyMap() : ChRootCmd("systemd-run --machine=archinstall --pty localectl set-keymap")
+  {
+
+  }
+};
+
 // Create filesystem
 template<class FS>
 struct CreateFilesystem : public Command

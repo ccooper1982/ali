@@ -80,8 +80,7 @@ void Install::install ()
 
     if (minimal)
     {
-      // if any of these fail, they still return true because it is not a show stopper,
-      // the installed system should boot, but not into what the user expects
+      // if any of these fail, they still return true because it is not a show stopper
       
       // TODO additional packages
 
@@ -90,8 +89,18 @@ void Install::install ()
                           exec_stage(&Install::profile, "profile") &&
                           exec_stage(&Install::gpu, "video");
 
+      
+      
+      // kb map set after profile install because it overwrites the default X11 keyboard conf file      
+      const auto locale_data = Widgets::start()->get_data();
+      
+      log_info(std::format("Setting keymap {}", locale_data.keymap));
+
+      // TODO true to copy X11 keyboard config, not required if profile is TTY
+      LocaleUtils::generate_keymap(locale_data.keymap, true);
+
       emit on_complete(extra ? CompleteStatus::ExtraSuccess : CompleteStatus::ExtraFail);
-    }
+    }    
   }
   catch(const std::exception& e)
   {
@@ -399,11 +408,11 @@ bool Install::localise()
     log_warning("Generating/setting locales failed");
   }
 
-  log_info(std::format("Setting keymap {}", locale_data.keymap));
-  if (!LocaleUtils::generate_keymap(locale_data.keymap))
-  {
-    log_warning("Setting key map failed");
-  }
+  // log_info(std::format("Setting keymap {}", locale_data.keymap));
+  // if (!LocaleUtils::generate_keymap(locale_data.keymap))
+  // {
+  //   log_warning("Setting key map failed");
+  // }
 
   // locale not considered essential, more of an annoyance if it fails
   return true; 

@@ -41,7 +41,7 @@ public:
   static const QStringList& get_timezones() { return m_timezones; }
 
   static bool generate_locale(const QStringList& user_locales, const QString& current);
-  static bool generate_keymap(const std::string& keys);
+  static bool generate_keymap(const std::string& keys, const bool gen_x11_keymap);
   static bool generate_timezone(const std::string& zone);
   
 private:

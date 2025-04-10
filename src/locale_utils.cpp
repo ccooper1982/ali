@@ -29,7 +29,6 @@ static const char LocaleGenIntro[] = R"(# Configuration file for locale-gen
 static const fs::path LiveLocaleGenPath {"/usr/share/i18n/SUPPORTED"};
 static const fs::path InstalledLocaleGenPath {RootMnt / "etc/locale.gen"};
 static const fs::path InstalledLocaleConfPath {RootMnt / "etc/locale.conf"};
-static const fs::path InstalledVirtualConsolePath {RootMnt / "etc/vconsole.conf"};
 static const fs::path TimezonePath {"/etc/localtime"};
 
 QStringList LocaleUtils::m_locales;
@@ -160,22 +159,41 @@ bool LocaleUtils::write_locale_gen(const QStringList& user_locales)
 }
 
 
-bool LocaleUtils::generate_keymap(const std::string& keys)
+bool LocaleUtils::generate_keymap(const std::string& keys, const bool gen_x11_keymap)
 {
+  static const std::string_view XKBConf = "00-keyboard.conf";
+  static const fs::path LiveX11KeyboardConfDir = "etc/X11/xorg.conf.d";
+
+  static const fs::path LiveX11KeyboardConfPath {"/" / LiveX11KeyboardConfDir / XKBConf};
+  static const fs::path InstalledX11KeyboardConfPath {RootMnt / LiveX11KeyboardConfDir / XKBConf};
+
+  static const fs::path LiveVirtualConsolePath {"/etc/vconsole.conf"};
+  static const fs::path InstalledVirtualConsolePath {RootMnt / "etc/vconsole.conf"};
+
+  // arguable a bit hacky: we can't use `localectl set-keymap` in chroot
+  // because there is not a proper/full dbus running. So instead
+  // we run the command within the live system, then copy the files to the
+  // installed system. Therefore this should be run after the desktop profile
+
   bool set{false};
 
   try
   {
-    ChRootCmd set_keys{std::format("localectl set-keymap {}", keys)};
-    //ChRootCmd set_x11_keys{std::format("localectl set-x11-keymap {}", keys)};
-    ChRootCmd load_cmd{std::format("loadkeys {}", keys)};
+    Command set_keymap {std::format("localectl set-keymap {}", keys)};
+    if (set_keymap.execute() == CmdSuccess)
+    {
+      std::error_code ec_x11, ec_vconsole;
 
-    set = set_keys.execute() == CmdSuccess &&
-          //  set_x11_keys.execute() == CmdSuccess &&
-          load_cmd.execute() == CmdSuccess;
-    
-    std::ofstream stream{InstalledVirtualConsolePath, std::ios_base::out | std::ios_base::trunc};
-    stream << "KEYMAP=" << keys << '\n';
+      fs::copy_file(LiveVirtualConsolePath, InstalledVirtualConsolePath, fs::copy_options::overwrite_existing, ec_vconsole);
+
+      if (gen_x11_keymap)
+      {
+        fs::create_directories(InstalledX11KeyboardConfPath.parent_path());
+        fs::copy_file(LiveX11KeyboardConfPath, InstalledX11KeyboardConfPath, fs::copy_options::overwrite_existing, ec_x11);
+      }
+
+      set = ec_x11.value() == 0 && ec_vconsole.value() == 0;
+    }
   }
   catch(const std::exception& e)
   {
