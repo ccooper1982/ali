@@ -48,7 +48,6 @@ private:
   static bool write_locale_gen(const QStringList& user_locales);
 
 private:
-  //static std::string m_intro;  
   static QStringList m_locales;
   static QStringList m_keymaps;
   static QStringList m_timezones;

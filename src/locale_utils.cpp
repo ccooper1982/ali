@@ -26,13 +26,12 @@ static const char LocaleGenIntro[] = R"(# Configuration file for locale-gen
 
 // these paths use RootMnt (/mnt) because they are used outside of chroot, with
 // std::filesystem and std::fstream functions
-static const fs::path LiveLocaleGenPath {"/etc/locale.gen"};
+static const fs::path LiveLocaleGenPath {"/usr/share/i18n/SUPPORTED"};
 static const fs::path InstalledLocaleGenPath {RootMnt / "etc/locale.gen"};
 static const fs::path InstalledLocaleConfPath {RootMnt / "etc/locale.conf"};
 static const fs::path InstalledVirtualConsolePath {RootMnt / "etc/vconsole.conf"};
 static const fs::path TimezonePath {"/etc/localtime"};
 
-//std::string LocaleUtils::m_intro;
 QStringList LocaleUtils::m_locales;
 QStringList LocaleUtils::m_timezones;
 QStringList LocaleUtils::m_keymaps;
@@ -43,11 +42,6 @@ bool LocaleUtils::read_locales()
   m_locales.clear();
   m_locales.reserve(500);
 
-
-  //
-  // READ /usr/share/i18n/SUPPORTED instead, avoids dealing with the introductory waffle
-  //      when writing, search each line for the locale, and uncommenting
-  //
   if (!fs::exists(LiveLocaleGenPath))
   {
     qCritical() << "File " << LiveLocaleGenPath.string() << " does not exist";
@@ -55,36 +49,27 @@ bool LocaleUtils::read_locales()
   }
 
   try
-  {
+  {    
     char buff[4096] = {'\0'};
     std::ifstream stream{LiveLocaleGenPath};
     
     while (stream.getline(buff, sizeof(buff)).good())
     {
-      const bool is_entry = (buff[0] == '#' && isalpha(buff[1])) || isalpha(buff[0]);
-
-      if (is_entry)
+      //format: "#<locale> <charset>  "
+      auto is_utf8 = [](const std::string_view line) -> std::pair<bool, std::string_view>
       {
-        //format: "#<locale> <charset>  "
-        auto is_utf8 = [](const std::string_view line) -> std::pair<bool, QString>
+        if (const auto locale_end = line.find(' '); locale_end != std::string_view::npos && locale_end+1 < line.size())
         {
-          std::stringstream ss;
-          ss << std::noskipws << line;
-
-          std::string locale, charset;
-          getline(ss, locale, ' ');
-          getline(ss, charset, ' ');
-
-          if (!locale.empty() && charset == "UTF-8")
-            return {true, QString::fromStdString(locale)};
-          else
-            return {false, QString{}};
-        };
-        
-        if (const auto [store, locale_name] = is_utf8(buff[0] == '#' ? buff+1 : buff); store)
-        {
-          m_locales.emplace_back(locale_name);
+          if (std::string_view{line.substr(locale_end+1)} == "UTF-8")
+            return {true, line.substr(0, locale_end)};
         }
+
+        return {false, std::string_view{}};
+      };
+      
+      if (const auto [store, locale_name] = is_utf8(buff); store)
+      {
+        m_locales.emplace_back(QString::fromLocal8Bit(locale_name.data(), locale_name.size()));
       }
     }
   }
