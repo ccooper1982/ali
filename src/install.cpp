@@ -681,8 +681,6 @@ bool Install::boot_loader()
 }
 
 
-//  NOTE: mounting is not done within chroot, and os-prober reads the mtable,
-//        Rethink.
 bool Install::prepare_grub_probe()
 {
   log_info("Preparing for GRUB os-probe");
@@ -724,8 +722,8 @@ bool Install::prepare_grub_probe()
       unsigned int i = 0;
       for (const auto& part : parts)
       {
-        // partition can't contain OS if: it's EFI or has no filesystem.
-        // and we don't want mount any of the partitions of the installed Arch
+        // partition can't contain an OS if it's EFI or has no filesystem,
+        // and we don't mount any of the partitions of the installed Arch
         if (!part.is_efi && !part.fs_type.empty() &&  part.dev != mount_data.boot.dev &&
                                                       part.dev != mount_data.root.dev && 
                                                       part.dev != mount_data.home.dev)
@@ -735,7 +733,7 @@ bool Install::prepare_grub_probe()
           const auto mount_point = std::format("{}/{}", TmpMountPath.string(), i++);
           const auto mount_cmd = std::format("mount --mkdir --read-only --target-prefix {} -t {} {} {}", RootMnt.string(), fs, part.dev, mount_point);
           
-          if (Command cmd{mount_cmd}; cmd.execute() != CmdSuccess)
+          if (ChRootCmd cmd{mount_cmd}; cmd.execute() != CmdSuccess)
           {
             log_warning(std::format("Failed to mount {} -> {}", part.dev, mount_point)); 
             mounted = false;
@@ -759,11 +757,9 @@ void Install::cleanup_grub_probe()
 {
   for (const auto& m : temp_mounts)
   {
-    const auto path = std::format("{}{}", RootMnt.string(), m);
+    log_info(std::format("Unmounting: {}", m));
 
-    log_info(std::format("Unmounting: {}", path));
-
-    Command cmd{std::format("umount -f {}", path)};
+    ChRootCmd cmd{std::format("umount -f {}", m)};
     cmd.execute();
   }
 }
