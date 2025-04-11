@@ -8,30 +8,40 @@
 
 
 static const QString waffle_title_have_parts = R"!(## Partitions
-This table only shows partitions that are within a **GPT**
-and **not mounted**.
+This table only shows **GPT** partitions and **not mounted**.
 
 If your partitions are not showing, return to the terminal:
 - `lsblk -o PATH,PTTYPE,MOUNTPOINT <dev>`
+- `findmnt`
+
+---
+
+`/`:
+- Existing filesystem (if any) is always wiped and the new filesystem created
 
 <br/>
-To keep an existing filesystem, leave the "Create Filesystem" option
-blank, otherwise set the desired filesystem.
+
+`/boot`:
+- If using an existing EFI partition, set 'Create Filesystem' empty
+- Otherwise, set `Create Filesystem` to `vfat` (FAT32)
 
 <br/>
 
-- `/boot` must be `vfat (FAT32)`, and 512MB to 1GB
-- Created filesystem on `/boot` is always FAT32
+`/home`:
+- Either same as `/`, or a dedicated partition
+- If mounting to existing partition, leave `Create Filesystem` empty
+- Otherwise set `Create Filesystem` as desired
 )!";
 
 
-static const QString waffle_title_no_parts = R"!( ## Partitions
-No eligible partitions found. Partitions must be GPT and **not** mounted.
+static const QString waffle_title_no_parts = R"!(## Partitions
+No eligible partitions found. This table only shows **GPT** partitions and **not mounted**.
 
 <br/>
 
-Return to the terminal, then:
+Return to the terminal:
 - `lsblk -o PATH,PTTYPE,MOUNTPOINT <dev>`
+- `findmnt`
 
 <br/>
 
@@ -39,13 +49,7 @@ PTTYPE must be `gpt` and MOUNTPOINT empty.
 
 - To ummount: `umount <mount_point>`
 
-If you know you don't need the data:
-- `wipefs -a -f <dev>`
-- This removes the partition table
-- Assume data is **unrecoverable** after this command
-
-In any case, you need a GPT label on the device
-for Arch, and at least two partitions (for boot and root).
+You need a GPT label on the device, with at least two partitions (`/` and `/boot`).
 
 <br/>
 
@@ -242,7 +246,7 @@ struct SelectMounts : public QWidget
   void update_mount_data(const bool summary = true)
   {
     m_mounts.root.dev = m_root_dev->currentText().toStdString();
-    m_mounts.root.create_fs = m_root_fs->currentIndex () != 0;
+    m_mounts.root.create_fs = true;//m_root_fs->currentIndex () != 0;
     m_mounts.root.fs = m_mounts.root.create_fs ?  m_root_fs->currentText().toStdString() :
                                                   PartitionUtils::get_partition_fs(m_mounts.root.dev);
 
@@ -274,15 +278,15 @@ struct SelectMounts : public QWidget
   void update_summary()
   {
     const auto root_dev = QString::fromStdString(m_mounts.root.dev);
-    const auto root_fs = QString::fromStdString(m_mounts.root.fs);
+    const auto root_fs = m_mounts.root.fs.empty() ? "None" : QString::fromStdString(m_mounts.root.fs);
     const auto root_create_fs = m_mounts.root.create_fs ? "Yes" : "No";
 
     const auto boot_dev = QString::fromStdString(m_mounts.boot.dev);
-    const auto boot_fs = QString::fromStdString(m_mounts.boot.fs);
+    const auto boot_fs = m_mounts.boot.fs.empty() ? "None" : QString::fromStdString(m_mounts.boot.fs);
     const auto boot_create_fs = m_mounts.boot.create_fs ? "Yes" : "No";
 
     const auto home_dev = QString::fromStdString(m_mounts.home.dev);
-    const auto home_fs = QString::fromStdString(m_mounts.home.fs);
+    const auto home_fs = m_mounts.home.fs.empty() ? "None" : QString::fromStdString(m_mounts.home.fs);
     const auto home_create_fs = m_mounts.home.create_fs ? "Yes" : "No";
     
     m_summary_text.clear();
@@ -297,14 +301,14 @@ struct SelectMounts : public QWidget
 
     if (root_dev == boot_dev)
       ss << "<span style=\"color:red;\">/ and /boot cannot be the same partition</span>\n";
+    else if (home_dev == boot_dev)
+      ss << "<span style=\"color:red;\">/home and /boot cannot be the same partition</span>\n";
     else
     {
-      if (root_fs.isEmpty())
-      {
+      if (root_fs == "None")
         ss << "<span style=\"color:red;\">/ has no filesystem</span>\n";
-      }
 
-      if (boot_fs.isEmpty())  
+      if (boot_fs == "None")
         ss << "<span style=\"color:red;\">/boot has no filesystem</span>\n";
       else if (boot_fs != "vfat")
         ss << "<span style=\"color:red;\">/boot must be vfat</span>\n";
@@ -355,10 +359,10 @@ PartitionsWidget::PartitionsWidget() : ContentWidget("Mounts")
   QVBoxLayout * layout = new QVBoxLayout;
   setLayout(layout);
   
-  QLabel * lbl_title = new QLabel;
-  lbl_title->setTextFormat(Qt::MarkdownText);
+  QTextEdit * lbl_title = new QTextEdit;
+  lbl_title->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
   lbl_title->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
-  lbl_title->setWordWrap(true);
+  lbl_title->setReadOnly(true);
   
   layout->setAlignment(Qt::AlignTop);
   layout->addWidget(lbl_title);
@@ -367,7 +371,7 @@ PartitionsWidget::PartitionsWidget() : ContentWidget("Mounts")
 
   if (PartitionUtils::have_partitions())
   { 
-    lbl_title->setText(waffle_title_have_parts);
+    lbl_title->setMarkdown(waffle_title_have_parts);
 
     m_mounts_widget = new SelectMounts;
 
@@ -376,7 +380,7 @@ PartitionsWidget::PartitionsWidget() : ContentWidget("Mounts")
   }
   else
   {
-    lbl_title->setText(waffle_title_no_parts);
+    lbl_title->setMarkdown(waffle_title_no_parts);
   }
 
   layout->addStretch(1);
@@ -385,41 +389,43 @@ PartitionsWidget::PartitionsWidget() : ContentWidget("Mounts")
 
 QTableWidget * PartitionsWidget::create_table()
 {
-  static const int COL_DEV  = 0;
-  static const int COL_FS   = 1;
-  static const int COL_EFI  = 2;
-  static const int COL_SIZE = 3;
+  static const int COL_DEV      = 0;
+  static const int COL_FS_CURR  = 1;
+  static const int COL_EFI      = 2;
+  static const int COL_SIZE     = 3;
 
   auto table = new QTableWidget(PartitionUtils::num_partitions(), 4);
   table->verticalHeader()->hide();
   table->setSelectionMode(QAbstractItemView::SelectionMode::SingleSelection);
   table->setSelectionBehavior(QAbstractItemView::SelectionBehavior::SelectRows);
-  table->setHorizontalScrollBarPolicy(Qt::ScrollBarPolicy::ScrollBarAlwaysOff);  
+  table->setHorizontalScrollBarPolicy(Qt::ScrollBarPolicy::ScrollBarAlwaysOff);
+  table->setVerticalScrollBarPolicy(Qt::ScrollBarPolicy::ScrollBarAsNeeded);
   table->setMinimumHeight(100);
   table->setMaximumHeight(200);
   table->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-  table->setHorizontalHeaderItem(COL_DEV,   new QTableWidgetItem("Device"));
-  table->setHorizontalHeaderItem(COL_FS,    new QTableWidgetItem("Filesystem"));
-  table->setHorizontalHeaderItem(COL_EFI,   new QTableWidgetItem("EFI"));
-  table->setHorizontalHeaderItem(COL_SIZE,  new QTableWidgetItem("Size"));
+  table->setHorizontalHeaderItem(COL_DEV,     new QTableWidgetItem("Device"));
+  table->setHorizontalHeaderItem(COL_FS_CURR, new QTableWidgetItem("Existing Filesystem"));
+  table->setHorizontalHeaderItem(COL_EFI,     new QTableWidgetItem("EFI"));
+  table->setHorizontalHeaderItem(COL_SIZE,    new QTableWidgetItem("Size"));
 
   int row = 0;
   for(const auto& part : PartitionUtils::partitions())
   {
     const auto path = QString::fromStdString(part.dev);
+    const auto fs = part.is_fat32 ? "vfat (FAT32)" : part.fs_type;
 
     auto item_dev = new QTableWidgetItem(path);
-    auto item_type = new QTableWidgetItem(QString::fromStdString(part.is_fat32 ? "vfat (FAT32)" : part.fs_type));
+    auto item_fs_curr = new QTableWidgetItem(QString::fromStdString(fs));
     auto item_efi = new QTableWidgetItem(QString::fromStdString(part.is_efi ? "True" : "False"));
     auto item_size = new QTableWidgetItem(QString::fromStdString(format_size(part.size)));
     
-    item_type->setTextAlignment(Qt::AlignHCenter);
+    item_fs_curr->setTextAlignment(Qt::AlignHCenter);
     item_efi->setTextAlignment(Qt::AlignHCenter);
     
-    table->setItem(row, COL_DEV, item_dev) ;
-    table->setItem(row, COL_FS, item_type) ;
-    table->setItem(row, COL_EFI, item_efi) ;
-    table->setItem(row, COL_SIZE, item_size) ;
+    table->setItem(row, COL_DEV, item_dev);
+    table->setItem(row, COL_FS_CURR, item_fs_curr);
+    table->setItem(row, COL_EFI, item_efi);
+    table->setItem(row, COL_SIZE, item_size);
     ++row;
 
     m_mounts_widget->add_boot(path);
@@ -428,7 +434,7 @@ QTableWidget * PartitionsWidget::create_table()
   }
 
   table->setColumnWidth(COL_DEV,200);
-  table->setColumnWidth(COL_FS,100);
+  table->setColumnWidth(COL_FS_CURR,150);
   table->setColumnWidth(COL_EFI,100);
   table->horizontalHeader()->setStretchLastSection(true);
   table->resizeRowsToContents();
