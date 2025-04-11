@@ -54,7 +54,7 @@ bool LocaleUtils::read_locales()
     
     while (stream.getline(buff, sizeof(buff)).good())
     {
-      //format: "#<locale> <charset>  "
+      //format: "<locale> <charset>"
       auto is_utf8 = [](const std::string_view line) -> std::pair<bool, std::string_view>
       {
         if (const auto locale_end = line.find(' '); locale_end != std::string_view::npos && locale_end+1 < line.size())
@@ -170,7 +170,7 @@ bool LocaleUtils::generate_keymap(const std::string& keys, const bool gen_x11_ke
   static const fs::path LiveVirtualConsolePath {"/etc/vconsole.conf"};
   static const fs::path InstalledVirtualConsolePath {RootMnt / "etc/vconsole.conf"};
 
-  // arguable a bit hacky: we can't use `localectl set-keymap` in chroot
+  // arguably a bit hacky: we can't use `localectl set-keymap` in chroot
   // because there is not a proper/full dbus running. So instead
   // we run the command within the live system, then copy the files to the
   // installed system. Therefore this should be run after the desktop profile

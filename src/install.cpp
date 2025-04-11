@@ -69,8 +69,7 @@ void Install::install ()
                           exec_stage(&Install::mount, "mount") &&
                           exec_stage(&Install::pacman_strap, "pacstrap") &&
                           exec_stage(&Install::swap, "swap") &&
-                          exec_stage(&Install::fstab, "fstab") &&
-                          exec_stage(&Install::localise, "locale") &&
+                          exec_stage(&Install::fstab, "fstab") &&                          
                           exec_stage(&Install::network, "network") &&
                           exec_stage(&Install::root_account, "root account") &&
                           exec_stage(&Install::user_account, "user account") &&
@@ -87,20 +86,11 @@ void Install::install ()
       // shell is extra because 'bash' is installed as part of 'base'
       const bool extra =  exec_stage(&Install::shell, "shell") &&
                           exec_stage(&Install::profile, "profile") &&
-                          exec_stage(&Install::gpu, "video");
-
+                          exec_stage(&Install::gpu, "video") &&
+                          exec_stage(&Install::localise, "locale");
       
-      
-      // kb map set after profile install because it overwrites the default X11 keyboard conf file      
-      const auto locale_data = Widgets::start()->get_data();
-      
-      log_info(std::format("Setting keymap {}", locale_data.keymap));
-
-      // TODO true to copy X11 keyboard config, not required if profile is TTY
-      LocaleUtils::generate_keymap(locale_data.keymap, true);
-
       emit on_complete(extra ? CompleteStatus::ExtraSuccess : CompleteStatus::ExtraFail);
-    }    
+    }
   }
   catch(const std::exception& e)
   {
@@ -199,8 +189,6 @@ bool Install::create_filesystem(const std::string_view part_dev, const std::stri
 
   return created;
 }
-
-
 
 
 // mounting
@@ -408,13 +396,13 @@ bool Install::localise()
     log_warning("Generating/setting locales failed");
   }
 
-  // log_info(std::format("Setting keymap {}", locale_data.keymap));
-  // if (!LocaleUtils::generate_keymap(locale_data.keymap))
-  // {
-  //   log_warning("Setting key map failed");
-  // }
+  log_info(std::format("Setting keymap {}", locale_data.keymap));
+  if (!LocaleUtils::generate_keymap(locale_data.keymap, true))
+  {
+    log_warning("Setting key map failed");
+  }
 
-  // locale not considered essential, more of an annoyance if it fails
+  // locale not considered essential, failure is more of an annoyance
   return true; 
 }
 
