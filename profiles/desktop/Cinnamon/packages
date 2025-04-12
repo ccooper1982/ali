@@ -1,0 +1,11 @@
+cinnamon
+gnome-screenshot
+gnome-terminal
+gnome-keyring
+blueman
+bluez-utils
+xed
+xdg-user-dirs-gtk
+sddm
+
+# blueman depends on bluez

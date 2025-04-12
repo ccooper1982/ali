@@ -13,6 +13,9 @@ inline const int CmdFail = -1;
 
 using OutputHandler = std::function<void(const std::string_view)>;
 
+
+// TODO Command has become a bit untidy after adding writing and ChRootUserCmd
+//      Maybe split out between ReadCommand and WriteCommand
 struct Command
 {
   Command ();
@@ -22,22 +25,34 @@ struct Command
   Command (const std::string_view cmd) ;
   // Run command and receive each line in the supplied callback.
   Command (const std::string_view cmd, OutputHandler&& on_output) ;
+
+  ~Command();
   
   virtual int execute (const std::string_view cmd, const int max_lines = -1);
   virtual int execute (const int max_lines = -1);
   virtual int execute (OutputHandler&& on_output, const int max_lines = -1);
-  virtual int execute_write(const std::string_view s);
   
+  virtual int execute_write(const std::string_view s);
+
+  bool write (const std::string_view s);
+  void end_write();
+
   int get_result() const { return m_result; }
 
 protected:
   bool executed() const { return m_executed; }
+  bool start_write(const std::string_view cmd);
+  
+
+private:
+  int close();
 
 private:
   std::string m_cmd;
   OutputHandler m_handler;
   bool m_executed{false};
   int m_result{CmdSuccess};
+  FILE * m_fd{nullptr};
 };
 
 
@@ -54,6 +69,40 @@ struct ChRootCmd : public Command
     Command(std::format("arch-chroot {} {}", RootMnt.string(), cmd), std::move(on_output))
   {
 
+  }
+};
+
+
+// This command is equivalent of doing this in terminal for user1:
+//  (echo "cd /home/user1"; echo "su user1"; echo "<command1>"; echo "<command2>";) | arch-chroot /mnt
+// We `su` so that `~` can be used in the user commands.
+struct ChRootUserCmd : public Command
+{
+  // Can't use `arch-chroot -u <username>` because it doesn't appear to 'become' the user, i.e.
+  // `cd ~` doesn't change to the user's home (it remains in /root). Or I'm misusing it.
+  ChRootUserCmd() :  Command()
+  {
+    
+  }
+
+
+  bool execute_commands (const std::string_view user, const QStringList& cmds)
+  {
+    std::stringstream ss;
+    ss << "(";
+    ss << std::format(R"!(echo "cd /home/{}"; )!", user);
+    ss << std::format(R"!(echo "su {}"; )!", user);
+
+    for (const auto& cmd : cmds)
+      ss << std::format(R"!(echo "{}"; )!", cmd.toStdString());
+
+    ss << ") | arch-chroot " << RootMnt.string();
+
+    const auto cmd_string = ss.str();
+
+    qDebug() << cmd_string;
+    
+    return execute(cmd_string) == CmdSuccess;
   }
 };
 

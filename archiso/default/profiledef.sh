@@ -24,6 +24,8 @@ file_permissions=(
   ["/usr/local/bin/choose-mirror"]="0:0:755"
   ["/usr/local/bin/Installation_guide"]="0:0:755"
   ["/usr/local/bin/livecd-sound"]="0:0:755"
+  ["/root/ali"]="0:0:644"
   ["/root/ali/ali"]="0:0:755"
+  ["/root/ali/profiles"]="0:0:644"
   ["/var/log/ali"]="0:0:666"
 )

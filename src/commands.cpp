@@ -26,6 +26,10 @@ Command::Command (const std::string_view cmd, OutputHandler&& on_output) :
 {
 }
 
+Command::~Command()
+{
+  close();
+}
 
 int Command::execute (const std::string_view cmd, const int max_lines)
 {
@@ -34,14 +38,14 @@ int Command::execute (const std::string_view cmd, const int max_lines)
   if (cmd.empty())
     return CmdSuccess;
 
-  // redirect stderr to stdout (pacstrap, and perhaps others, can outpput errors to stderr)
-  if (FILE * fd = ::popen(std::format("{} {}", cmd, "2>&1").data(), "r"); fd)
+  // redirect stderr to stdout (pacstrap, and perhaps others, output errors to stderr)
+  if (m_fd = ::popen(std::format("{} {}", cmd, "2>&1").data(), "r"); m_fd)
   {
     char buff[4096];
     int n_lines{0};
     size_t n_chars{0};
     
-    for (char c ; ((c = fgetc(fd)) != EOF) && n_chars < sizeof(buff); )
+    for (char c ; ((c = fgetc(m_fd)) != EOF) && n_chars < sizeof(buff); )
     {
       if (!m_handler)
         continue;
@@ -64,7 +68,7 @@ int Command::execute (const std::string_view cmd, const int max_lines)
     if (m_handler && n_chars)
       m_handler(std::string_view {buff, n_chars});
 
-    return (m_result = pclose(fd));
+    return (m_result = close());
   }
   else
     return CmdFail;
@@ -86,14 +90,65 @@ int Command::execute (OutputHandler&& on_output, const int max_lines)
 
 int Command::execute_write(const std::string_view s)
 {
-  if (FILE * fd = ::popen(m_cmd.data(), "w"); fd)
+  if (!m_fd)
+    m_fd = ::popen(m_cmd.data(), "w");
+    
+  if (m_fd)
   {
-    fputs(s.data(), fd);
-    return ::pclose(fd);
+    fputs(s.data(), m_fd);
+    return close();
   }
+  
   return CmdFail;
 }
 
+
+bool Command::start_write(const std::string_view cmd)
+{
+  qDebug() << "opening pipe for " << cmd;
+
+  m_fd = ::popen(m_cmd.data(), "w");
+
+  qDebug() << (m_fd == nullptr ? "Failed open" : "Ok open");
+
+  return m_fd != nullptr;
+}
+
+
+bool Command::write (const std::string_view s)
+{
+  if (m_fd)
+  {
+    qDebug() << "pipe open for: " << s;
+    const bool ok = fputs(s.data(), m_fd) != EOF;
+    qDebug() << (ok ? "fputs ok" : "fputs fail");
+    return ok;
+  }
+  else
+  {
+    qCritical() << "pipe closed";
+    return false;
+  }
+}
+
+void Command::end_write()
+{
+  qDebug() << "closing pipe";
+  close();
+}
+
+int Command::close()
+{
+  int r = CmdSuccess;
+
+  if (m_fd)
+  {
+    r = ::pclose(m_fd);
+    m_fd = nullptr;
+  }
+  
+  return r;
+}
 
 
 //

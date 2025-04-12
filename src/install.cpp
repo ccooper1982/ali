@@ -417,7 +417,7 @@ bool Install::network()
 
   ChRootCmd hostname_cmd{std::format("echo \"{}\" > /etc/hostname", data.hostname)};
   if (hostname_cmd.execute() != CmdSuccess)
-    log_info("Failed to set /etc/hostname");
+    log_warning("Failed to set /etc/hostname");
 
   // intentionally continuing if hostname is unset
   if (data.copy_config)
@@ -831,40 +831,66 @@ bool Install::profile()
 {
   qDebug() << "Enter";
 
-  // get the name of the profile from the widget, which has already added the required packages
-  // to the Packages set, but we get the commands from the Profile
   const auto profile_name = Widgets::profile()->get_data();
   const auto profile_packages = Packages::profile();
-  const auto profile_commands = Profiles::get_profile(profile_name).commands;
-
-  log_info(std::format("Applying profile {}: {} packages, {} commands", profile_name.toStdString(),
-                                                                        profile_packages.size(),
-                                                                        profile_commands.size()));
-
+    
+  log_info(std::format("Applying profile {}", profile_name.toStdString()));
+  
   if (pacman_install(profile_packages))
   {
-    for (QStringList::size_type i = 0 ; i < profile_commands.size() ; ++i)
-    {
-      const auto cmd = profile_commands[i].toStdString();
-
-      log_info(cmd);
-
-      ChRootCmd install {cmd, [this](const std::string_view out)
-      {
-        log_info(out);
-      }};
-
-      if (install.execute() != CmdSuccess)
-      {
-        // we may as well continue
-        log_critical("Command failed");
-      }
-    }
+    run_profile_sys_commands(profile_name);
+    run_profile_user_commands(profile_name);
   }
 
   qDebug() << "Leave";
 
   return true;
+}
+
+
+void Install::run_profile_sys_commands(const QString& profile_name)
+{
+  const auto& profile_sys_commands = Profiles::get_profile(profile_name).system_commands;
+
+  log_info(std::format("Executing {} system commands", profile_sys_commands.size()));
+
+  for (QStringList::size_type i = 0 ; i < profile_sys_commands.size() ; ++i)
+  {
+    const auto& cmd = profile_sys_commands[i].toStdString();
+
+    log_info(cmd);
+
+    ChRootCmd install {cmd, [this](const std::string_view out)
+    {
+      log_info(out);
+    }};
+
+    if (install.execute() != CmdSuccess)
+    {
+      // may as well continue
+      log_critical("System command failed");
+    }
+  }
+}
+
+
+void Install::run_profile_user_commands(const QString& profile_name)
+{
+  const auto& user_username = Widgets::accounts()->user_username();
+
+  if (!user_username.empty())
+  {
+    const auto& profile_user_commands = Profiles::get_profile(profile_name).user_commands;
+
+    log_info(std::format("Executing {} user commands", profile_user_commands.size()));
+
+    ChRootUserCmd chroot;
+  
+    if (!chroot.execute_commands(user_username, profile_user_commands))
+    {
+      log_warning("At least one user command failed");
+    }
+  }
 }
 
 
@@ -936,6 +962,8 @@ bool Install::pacman_install(const PackageSet& packages)
     log_info("PackageSet is empty");
     return true;
   }
+
+  log_info(std::format("Installing {} packages", packages.size()));
 
   std::stringstream ss;
   ss << "pacman -S --noconfirm " << packages;

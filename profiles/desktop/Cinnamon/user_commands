@@ -1,0 +1,1 @@
+echo "exec cinnamon-session" > ~/.xinitrc

@@ -10,8 +10,10 @@ struct Profile
 {
   QString name; // 'Minimal', 'Hyprland', etc. Taken from profile directory name
   QStringList packages; 
-  QStringList commands; // commands required post-install (typically services)
+  QStringList system_commands; // commands to run as root
+  QStringList user_commands; // commands to run as user
   QString info; // info to user for post-install guide
+  bool is_tty; // true if profile is tty (no x11/wayland)
 };
 
 
@@ -26,9 +28,11 @@ public:
   static const Profile& get_profile (const QString& name) ;
   
 private:
+  enum class Commands { System, User };
+
   static bool read_profiles(const fs::path& dir, std::map<QString, Profile>& map);
   static QStringList read_packages(const fs::path& dir);
-  static QStringList read_commands(const fs::path& dir);
+  static QStringList read_commands(const fs::path& dir, const Commands type);
   static QString read_info(const fs::path& dir);
 
 private:

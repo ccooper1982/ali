@@ -5,7 +5,7 @@
 #include <QFile>
 #include <QTextStream>
 
-// class statics
+
 std::map<QString, Profile> Profiles::m_tty_profiles;
 std::map<QString, Profile> Profiles::m_desktop_profiles;
 
@@ -14,7 +14,8 @@ static const fs::path ProfilesPath = "profiles";
 static const fs::path DesktopProfilesPath = ProfilesPath / "desktop";
 static const fs::path TtyProfilesPath = ProfilesPath / "tty";
 static const fs::path PackagesFile = "packages";
-static const fs::path CommandsFile = "commands";
+static const fs::path SysCommandsFile = "system_commands";
+static const fs::path UserCommandsFile = "user_commands";
 static const fs::path InfoFile = "info";
 
 
@@ -47,8 +48,10 @@ bool Profiles::read_profiles(const fs::path& dir, std::map<QString, Profile>& ma
 
         Profile profile { .name = name,
                           .packages = read_packages(path),
-                          .commands = read_commands(path),
-                          .info = read_info(path)
+                          .system_commands = read_commands(path, Commands::System),
+                          .user_commands = read_commands(path, Commands::User),
+                          .info = read_info(path),
+                          .is_tty = std::addressof(map) == std::addressof(m_tty_profiles) //dir.stem() == "tty"
                         };
 
         map.emplace(name, std::move(profile));
@@ -103,15 +106,17 @@ QStringList Profiles::read_packages(const fs::path& dir)
 }
 
 
-QStringList Profiles::read_commands(const fs::path& dir)
+QStringList Profiles::read_commands(const fs::path& dir, const Commands type)
 {
   QStringList list;
 
   try
   {
-    if (fs::exists(dir / CommandsFile))
+    const auto path = dir / (type == Commands::System ? SysCommandsFile : UserCommandsFile);
+
+    if (fs::exists(path))
     {
-      if (QFile file {dir / CommandsFile}; file.open(QIODevice::ReadOnly))
+      if (QFile file {path}; file.open(QIODevice::ReadOnly))
       {
         QTextStream stream(&file);
         

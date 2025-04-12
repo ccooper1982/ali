@@ -360,8 +360,7 @@ PartitionsWidget::PartitionsWidget() : ContentWidget("Mounts")
   setLayout(layout);
   
   QTextEdit * lbl_title = new QTextEdit;
-  lbl_title->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-  lbl_title->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
+  lbl_title->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);  
   lbl_title->setReadOnly(true);
   
   layout->setAlignment(Qt::AlignTop);
@@ -371,19 +370,21 @@ PartitionsWidget::PartitionsWidget() : ContentWidget("Mounts")
 
   if (PartitionUtils::have_partitions())
   { 
+    lbl_title->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
     lbl_title->setMarkdown(waffle_title_have_parts);
 
     m_mounts_widget = new SelectMounts;
 
     layout->addWidget(create_table());
     layout->addWidget(m_mounts_widget);    
+    layout->addStretch(1);
   }
   else
   {
+    lbl_title->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Maximum);
+    lbl_title->setFixedHeight(600);
     lbl_title->setMarkdown(waffle_title_no_parts);
   }
-
-  layout->addStretch(1);
 }
 
 

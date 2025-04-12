@@ -87,21 +87,24 @@ private:
   {
     try
     {
-      // empty when we set_tty() or set_desktop() clear
-      // then add. Not an error but get_profile() will throw
+      // empty when we set_tty() or set_desktop(), clear and
+      // then add. Not an error but get_profile() throws
       if (name.isEmpty())
         return;
 
-      m_packages->clear();
-      m_commands->clear();
       m_info->clear();
 
       const auto& profile = Profiles::get_profile(name);
       
       Packages::set_profile_packages(profile.packages);
 
-      m_packages->appendPlainText(profile.packages.join('\n'));
-      m_commands->appendPlainText(profile.commands.join('\n'));
+      m_packages->setPlainText(profile.packages.join('\n'));
+
+      m_commands->setPlainText("-- System Commands");
+      m_commands->appendPlainText(profile.system_commands.join('\n'));
+      m_commands->appendPlainText("-- User Commands");
+      m_commands->appendPlainText(profile.user_commands.join('\n'));
+      
       m_info->setMarkdown(profile.info);
 
       m_packages->verticalScrollBar()->setSliderPosition(0);

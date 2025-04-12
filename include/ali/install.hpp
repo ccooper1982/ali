@@ -87,8 +87,10 @@ private:
 
   bool gpu();
   bool profile();
+  void run_profile_user_commands(const QString& profile_name);
+  void run_profile_sys_commands(const QString& profile_name);
 
-  // utils
+  // utils  
   bool enable_service(const std::string_view name);
   bool copy_files(const fs::path& src, const fs::path& dest, const std::vector<std::string_view>& extensions);
   bool pacman_install(const PackageSet& packages);

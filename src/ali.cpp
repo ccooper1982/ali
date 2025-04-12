@@ -275,7 +275,7 @@ int main (int argc, char ** argv)
   
   // do this ASAP
   configure_log_file(&window);
-  
+
   if (QStyleFactory::keys().contains("Fusion"))
   {
     // TODO Styling may not be worth the effort for some colors, except
@@ -306,7 +306,20 @@ int main (int argc, char ** argv)
   window.setCentralWidget(centre_widget);
   window.show();
 
-  // perform startup checks
+  
+  /* TODO temp
+  const std::string_view user_username = "user1";
+  const auto profile_name = Widgets::profile()->get_data();
+  const auto profile_user_commands = Profiles::get_profile("Cinnamon").user_commands;
+
+  qDebug() << std::format("Executing {} user commands", profile_user_commands.size());
+
+  ChRootUserCmd chroot;
+  
+  if (!chroot.execute_commands(user_username, profile_user_commands))
+    qCritical() << "Failed";
+  */
+  
   if (const auto [ok, err] = startup_checks(); !ok)
   {
     qCritical() << err;
