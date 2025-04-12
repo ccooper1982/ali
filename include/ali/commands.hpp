@@ -96,7 +96,7 @@ struct ChRootUserCmd : public Command
     for (const auto& cmd : cmds)
       ss << std::format(R"!(echo "{}"; )!", cmd.toStdString());
 
-    ss << ") | arch-chroot " << RootMnt.string();
+    ss << " exit;) | arch-chroot " << RootMnt.string();
 
     const auto cmd_string = ss.str();
 

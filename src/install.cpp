@@ -877,11 +877,10 @@ void Install::run_profile_sys_commands(const QString& profile_name)
 void Install::run_profile_user_commands(const QString& profile_name)
 {
   const auto& user_username = Widgets::accounts()->user_username();
+  const auto& profile_user_commands = Profiles::get_profile(profile_name).user_commands;
 
-  if (!user_username.empty())
+  if (!user_username.empty() && !profile_user_commands.empty())
   {
-    const auto& profile_user_commands = Profiles::get_profile(profile_name).user_commands;
-
     log_info(std::format("Executing {} user commands", profile_user_commands.size()));
 
     ChRootUserCmd chroot;
