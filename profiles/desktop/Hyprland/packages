@@ -13,7 +13,13 @@ dunst
 grim
 slurp
 blueman
+bluez
 otf-font-awesome
-wireplumber
 uwsm
 sddm
+waybar
+wireplumber
+pulseaudio
+pulseaudio-bluetooth
+pulseaudio-alsa
+pavucontrol

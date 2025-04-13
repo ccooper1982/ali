@@ -8,4 +8,5 @@ xed
 xdg-user-dirs-gtk
 sddm
 
+# note: iwd is installed by default at the moment
 # blueman depends on bluez
