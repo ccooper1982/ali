@@ -91,6 +91,7 @@
     "qfilesystemwatcher": "cpp",
     "filesystem": "cpp",
     "qdebug": "cpp",
-    "qlabel": "cpp"
+    "qlabel": "cpp",
+    "qjsonobject": "cpp"
   }
 }

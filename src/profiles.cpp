@@ -4,6 +4,9 @@
 #include <QDebug>
 #include <QFile>
 #include <QTextStream>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
 
 
 std::map<QString, Profile> Profiles::m_tty_profiles;
@@ -30,133 +33,83 @@ bool Profiles::read()
 }
 
 
-bool Profiles::read_profiles(const fs::path& dir, std::map<QString, Profile>& map)
+bool Profiles::read_profiles(const fs::path& dir, ProfilesMap& profiles)
 {
-  qInfo() << "Reading profiles from: " << dir.string();
-  
-  bool done{true};
+  for (const fs::path& entry : fs::directory_iterator{dir})
+  { 
+    if (!(entry.extension() == ".jsonc" || entry.extension() == ".json"))
+      continue;
 
-  try
-  {
-    for (const auto& entry : fs::directory_iterator{dir})
+    if (QFile file {entry}; file.open(QIODevice::ReadOnly))
     {
-      if (const auto path = entry.path(); entry.is_directory() && !path.empty())
+      if (const auto doc = QJsonDocument::fromJson(file.readAll()); doc.isNull())
       {
-        const auto name = QString::fromStdString(path.stem().string());
-        
-        qInfo() << "Found " << name;
-
-        Profile profile { .name = name,
-                          .packages = read_packages(path),
-                          .system_commands = read_commands(path, Commands::System),
-                          .user_commands = read_commands(path, Commands::User),
-                          .info = read_info(path),
-                          .is_tty = std::addressof(map) == std::addressof(m_tty_profiles) //dir.stem() == "tty"
-                        };
-
-        map.emplace(name, std::move(profile));
+        qCritical() << "Profile JSON invalid: " << entry.string();
+        return false;
       }
-    }
-
-    qInfo() << "Have " << map.size() << " profiles";
-  }
-  catch(const std::exception& e)
-  {
-    qCritical() << "ERROR: " << e.what();
-    map.clear();
-    done = false;
-  }
-  catch(...)
-  {
-    qCritical() << "ERROR: unknown";
-    map.clear();
-    done = false;
-  }
-
-  return done;
-}
-
-
-QStringList Profiles::read_packages(const fs::path& dir)
-{
-  QStringList list;
-
-  try
-  {
-    if (fs::exists(dir / PackagesFile))
-    { 
-      if (QFile file {dir / PackagesFile}; file.open(QIODevice::ReadOnly))
+      else if (!read_profile(entry, doc, profiles))
       {
-        QTextStream stream(&file);
-        for (QString line = stream.readLine(); !line.isNull() ; line = stream.readLine())
-        {
-          if (!line.isEmpty() && line[0] != '#')
-            list.append(line);
-        }
+        qCritical () << "Profile file error. JSON is valid but structure is not: " << entry.string();
+        return false;
       }
     }
   }
-  catch(const std::exception& e)
-  {
-    qCritical() << "ERROR: " << e.what();
-    list.clear();
-  } 
 
-  return list;
+  return true;
 }
 
 
-QStringList Profiles::read_commands(const fs::path& dir, const Commands type)
+bool Profiles::read_profile (const fs::path path, const QJsonDocument& doc, Profiles::ProfilesMap& profiles)
 {
-  QStringList list;
+  if (!doc.isObject())
+    return false;
 
-  try
+  const auto root = doc.object();
+
+  const auto valid = [&root](const QString& key, const QJsonValue::Type t, const bool required = true)
   {
-    const auto path = dir / (type == Commands::System ? SysCommandsFile : UserCommandsFile);
+    if (required)
+      return root.contains(key) && root[key].type() == t;
+    else if (root.contains(key) && root[key].type() != t)
+      return false;
+    else
+      return true;
+  };
 
-    if (fs::exists(path))
+  auto is_valid = valid("packages", QJsonValue::Array) &&
+                  valid("system_commands", QJsonValue::Array) &&
+                  valid("user_commands", QJsonValue::Array) &&
+                  valid("name", QJsonValue::String);
+
+
+  if (!is_valid)
+    return false;
+
+  Profile profile;
+  profile.is_tty = std::addressof(profiles) == std::addressof(m_tty_profiles);
+  profile.name = root["name"].toString();
+
+
+  auto to_stringlist = [&profile](const QJsonArray& arr, QStringList& dest)
+  {
+    for (const auto& v : arr)
     {
-      if (QFile file {path}; file.open(QIODevice::ReadOnly))
-      {
-        QTextStream stream(&file);
-        
-        for (QString line = stream.readLine(); !line.isNull() ; line = stream.readLine())
-        {
-          if (!line.isEmpty() && line[0] != '#')
-            list.append(line);
-        }
-      }
+      if (!v.isString())
+        return false;
+
+      dest.append(v.toString());
     }
-  }
-  catch(const std::exception& e)
-  {
-    qCritical() << "ERROR: " << e.what();
-    list.clear();
-  } 
+    return true;
+  };
 
-  return list;
-}
+  is_valid = to_stringlist(root["packages"].toArray(), profile.packages) && 
+             to_stringlist(root["system_commands"].toArray(), profile.system_commands) &&
+             to_stringlist(root["user_commands"].toArray(), profile.user_commands);
 
+  if (is_valid)
+    profiles.emplace(root["name"].toString(), std::move(profile));
 
-QString Profiles::read_info(const fs::path& dir)
-{
-  try
-  {
-    if (fs::exists(dir / InfoFile))
-    {
-      if (QFile file {dir / InfoFile}; file.open(QIODevice::ReadOnly))
-      {
-        QTextStream stream(&file);
-        return stream.readAll();
-      }      
-    }
-  }
-  catch(const std::exception& e)
-  {
-    qCritical() << "ERROR: " << e.what();
-  }
-
-  return "";
+  return is_valid;
 }
 
 

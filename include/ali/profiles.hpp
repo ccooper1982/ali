@@ -4,6 +4,7 @@
 #include <ali/common.hpp>
 #include <QString>
 #include <QStringList>
+#include <QJsonDocument>
 #include <map>
 
 struct Profile
@@ -19,6 +20,8 @@ struct Profile
 
 class Profiles
 {
+  using ProfilesMap = std::map<QString, Profile>;
+
 public:
   static bool read();
   static QStringList get_desktop_profile_names();
@@ -30,14 +33,16 @@ public:
 private:
   enum class Commands { System, User };
 
-  static bool read_profiles(const fs::path& dir, std::map<QString, Profile>& map);
-  static QStringList read_packages(const fs::path& dir);
-  static QStringList read_commands(const fs::path& dir, const Commands type);
-  static QString read_info(const fs::path& dir);
+  static bool read_profiles(const fs::path& dir, ProfilesMap& profiles);
+  static bool read_profile (const fs::path path, const QJsonDocument& doc, ProfilesMap& profiles);
+
+  // static QStringList read_packages(const fs::path& dir);
+  // static QStringList read_commands(const fs::path& dir, const Commands type);
+  // static QString read_info(const fs::path& dir);
 
 private:
-  static std::map<QString, Profile> m_tty_profiles;
-  static std::map<QString, Profile> m_desktop_profiles;
+  static ProfilesMap m_tty_profiles;
+  static ProfilesMap m_desktop_profiles;
 };
 
 #endif

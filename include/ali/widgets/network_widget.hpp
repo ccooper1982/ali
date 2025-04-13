@@ -32,6 +32,7 @@ struct NetworkWidget : public ContentWidget
     layout->addRow("Hostname", m_hostname);
     layout->addRow("NTP", m_ntp);
     layout->addRow("Copy Wi-Fi Config", m_copy_config);
+    layout->addWidget(new QLabel{"This only applies to iwd. If the DE uses NetworkManager, you will have to configure this separately."});
 
     setLayout(layout);
   }

@@ -8,13 +8,6 @@
 #include <QDebug>
 
 
-// // unused for now
-// enum class PackageStatus
-// {
-//   Ok,
-//   Conflict 
-// };
-
 struct Package
 {
   Package(const QString& name) : name(name)
@@ -100,8 +93,6 @@ private:
   static void set(const QStringList& names, PackageSet& ps)
   {
     ps = PackageSet{names.cbegin(), names.cend()};
-    // ps.clear();
-    // ps.insert(names.cbegin(), names.cend());
   }
 
   static void remove (const QStringList& names, PackageSet& ps)

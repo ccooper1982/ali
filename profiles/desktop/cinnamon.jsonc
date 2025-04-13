@@ -1,0 +1,22 @@
+{
+  "name":"Cinnamon",
+  "packages":
+  [
+    "cinnamon",
+    "gnome-screenshot",
+    "gnome-terminal",
+    "gnome-keyring",
+    "blueman",
+    "bluez-utils",
+    "xed",
+    "xdg-user-dirs-gtk"
+  ],
+  "system_commands":
+  [
+    "systemctl enable bluetooth.service"
+  ],
+  "user_commands":
+  [
+    "echo \"exec cinnamon-session\" > ~/.xinitrc"
+  ]
+}

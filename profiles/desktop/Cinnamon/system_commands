@@ -1,4 +1,0 @@
-systemctl disable iwd.service
-systemctl enable NetworkManager.service
-systemctl enable bluetooth.service
-systemctl enable sddm.service

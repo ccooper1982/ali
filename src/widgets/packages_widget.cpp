@@ -19,8 +19,6 @@ static const QStringList Required =
   "usb_modeswitch",
   "usbmuxd",
   "usbutils",
-  // "dhcpcd",
-  // "dhclient",
   "reflector",
   "dmidecode",
   "e2fsprogs",
