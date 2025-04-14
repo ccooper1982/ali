@@ -7,6 +7,12 @@
 
 struct ProfileSelect;
 
+struct ProfileData
+{
+  QString profile_name;
+  QString greeter_name;
+};
+
 
 struct ProfileWidget : public ContentWidget
 {
@@ -15,7 +21,7 @@ struct ProfileWidget : public ContentWidget
 
   virtual bool is_valid() override;
 
-  QString get_data() const;
+  ProfileData get_data() const;
 
 
 private:

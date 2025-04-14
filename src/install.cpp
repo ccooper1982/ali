@@ -163,7 +163,7 @@ bool Install::wipe_fs(const std::string_view dev)
 
 bool Install::create_filesystem(const std::string_view part_dev, const std::string_view fs)
 {
-  qDebug() << "Enter";
+  
 
   log_info(std::format("Creating {} on {}", fs, part_dev));
 
@@ -185,7 +185,7 @@ bool Install::create_filesystem(const std::string_view part_dev, const std::stri
   if (!created)
     qCritical() << "Failed to create filesystem: " << strerror(res);
 
-  qDebug() << "Leave";
+  
 
   return created;
 }
@@ -194,7 +194,7 @@ bool Install::create_filesystem(const std::string_view part_dev, const std::stri
 // mounting
 bool Install::mount()
 {
-  qDebug() << "Enter";
+  
 
   bool mounted_root{false}, mounted_boot{false}, mounted_home{true};
 
@@ -239,7 +239,7 @@ bool Install::mount()
     }
   }
 
-  qDebug() << "Leave";
+  
 
   return mounted_root && mounted_boot && mounted_home;
 }
@@ -247,7 +247,7 @@ bool Install::mount()
 
 bool Install::do_mount(const std::string_view dev, const std::string_view path, const std::string_view fs, const bool read_only)
 {
-  qDebug() << "Enter";
+  
 
   if (!fs::exists(path))
     fs::create_directory(path);
@@ -268,8 +268,6 @@ bool Install::do_mount(const std::string_view dev, const std::string_view path, 
 /// i.e. packages that are required/important to a useful bootable Arch
 bool Install::pacman_strap()
 {
-  qDebug() << "Enter";
-  
   auto create_cmd_string = []()
   {
     // pacstrap -K <root_mount> <package_list>
@@ -305,16 +303,12 @@ bool Install::pacman_strap()
     ok = false;
   }
 
-  qDebug() << "Leave";
-
   return ok;
 }
 
 
 bool Install::swap()
 {
-  qDebug() << "Enter";
-
   bool ok = true;
 
   const auto data = Widgets::swap()->get_data();
@@ -353,8 +347,6 @@ bool Install::swap()
     }
   }
 
-  qDebug() << "Leave";
-
   return ok;
 }
 
@@ -362,8 +354,6 @@ bool Install::swap()
 // fstab
 bool Install::fstab()
 {
-  qDebug() << "Enter";
-
   fs::create_directory((RootMnt / FsTabPath).parent_path());
 
   Command fstab {std::format("genfstab -U {} > {}", RootMnt.string(), FsTabPath.string())};
@@ -373,8 +363,6 @@ bool Install::fstab()
   if (!ok)
     log_critical("fstab failed");
   
-  qDebug() << "Leave";
-
   return ok;
 }
 
@@ -463,8 +451,6 @@ bool Install::network()
 // accounts
 bool Install::root_account()
 {
-  qDebug() << "Enter";
-
   const std::string root_passwd = Widgets::accounts()->root_password();
 
   // sanity check: UI should prevent this
@@ -474,18 +460,12 @@ bool Install::root_account()
     return false;
   }
 
-  const bool pass_set = set_password("root", root_passwd);
-  
-  qDebug() << "Leave";
-
-  return pass_set ;
+  return set_password("root", root_passwd);
 }
 
 
 bool Install::user_account()
 {
-  qDebug() << "Enter";
-
   const std::string username = Widgets::accounts()->user_username();
   const std::string password = Widgets::accounts()->user_password();
 
@@ -504,6 +484,9 @@ bool Install::user_account()
   }
   else
   {
+    // this is called during minimal installation, hence it sets the shell to bash. The shell selected
+    // in the UI is installed by shell()
+
     const bool can_sudo = Widgets::accounts()->user_is_sudo();
     const std::string wheel_group = can_sudo ? "-G wheel" : "";
 
@@ -521,19 +504,13 @@ bool Install::user_account()
     {
       if (!set_password(username, password))
         log_critical("Failed to set user password");
-      else if (can_sudo)      
-      {
-        if (!add_to_sudoers(username))
-          log_critical("Failed to add user to sudoers");
-        else
-          user_created = true;
-      }
+      else if (can_sudo && !add_to_sudoers(username))      
+        log_critical("Failed to add user to sudoers");
       else
         user_created = true;
     }
   }
-  
-  qDebug() << "Leave";
+
   return user_created;
 }
 
@@ -587,7 +564,7 @@ bool Install::add_to_sudoers(const std::string& user)
 
 bool Install::set_password(const std::string_view user, const std::string_view pass)
 {
-  qDebug() << "Enter";
+  
   log_info(std::format("Setting password for {}", user));
 
   bool pass_set{false}, pass_valid{false};
@@ -609,7 +586,7 @@ bool Install::set_password(const std::string_view user, const std::string_view p
     cmd_check.execute(); // if this fails, pass_valid remains false
   }
   
-  qDebug() << "Leave";
+  
 
   return pass_set && pass_valid;
 }
@@ -618,7 +595,7 @@ bool Install::set_password(const std::string_view user, const std::string_view p
 // bootloader
 bool Install::boot_loader()
 {
-  qDebug() << "Enter";
+  
 
   bool ok = false;
   int r = 0;
@@ -675,7 +652,7 @@ bool Install::boot_loader()
     }
   }
 
-  qDebug() << "Leave";
+  
 
   return ok;
 }
@@ -768,12 +745,10 @@ void Install::cleanup_grub_probe()
 // shell
 bool Install::shell()
 {
-  qDebug() << "Enter";
-
   const auto created_user = Widgets::accounts()->user_username();
   const auto user = created_user.empty() ? "root" : created_user;
   
-  // The Packages permits multiple shells, but the UI and this function only installs one
+  // Packages permits multiple shells, but the UI and this function only installs one
   const auto selected_shells = Packages::shells();
 
   if (selected_shells.contains(Package{"bash"}))
@@ -801,8 +776,6 @@ bool Install::shell()
       }
     }
   }
-
-  qDebug() << "Leave";
   
   // can fail, but not a reason to stop. 
   return true; 
@@ -811,7 +784,7 @@ bool Install::shell()
 
 bool Install::gpu()
 {
-  qDebug() << "Enter";
+  
 
   log_info(std::format("Installing video packages"));
 
@@ -820,7 +793,7 @@ bool Install::gpu()
     log_critical("Video packages install failed");
   }
 
-  qDebug() << "Leave";
+  
 
   return true;
 }
@@ -829,34 +802,37 @@ bool Install::gpu()
 // profile
 bool Install::profile()
 {
-  qDebug() << "Enter";
-
-  const auto profile_name = Widgets::profile()->get_data();
+  const auto [profile_name, greeter_name] = Widgets::profile()->get_data();
   const auto profile_packages = Packages::profile();
-    
+      
   log_info(std::format("Applying profile {}", profile_name.toStdString()));
   
   if (pacman_install(profile_packages))
   {
-    run_profile_sys_commands(profile_name);
-    run_profile_user_commands(profile_name);
-  }
+    const auto& profile = Profiles::get_profile(profile_name);
+    
+    run_sys_commands(profile.system_commands);
+    run_user_commands(profile.user_commands);
 
-  qDebug() << "Leave";
+    log_info (std::format("Installing packages for greeter {}", greeter_name.toStdString()));
+
+    if (pacman_install(Packages::greeter()))
+      run_sys_commands(Profiles::get_greeter(greeter_name).system_commands);
+    else
+      log_warning("Greeter failed to install, you will likely be in tty");
+  }
 
   return true;
 }
 
 
-void Install::run_profile_sys_commands(const QString& profile_name)
+void Install::run_sys_commands(const QStringList& commands)
 {
-  const auto& profile_sys_commands = Profiles::get_profile(profile_name).system_commands;
+  log_info(std::format("Executing {} system commands", commands.size()));
 
-  log_info(std::format("Executing {} system commands", profile_sys_commands.size()));
-
-  for (QStringList::size_type i = 0 ; i < profile_sys_commands.size() ; ++i)
+  for (QStringList::size_type i = 0 ; i < commands.size() ; ++i)
   {
-    const auto& cmd = profile_sys_commands[i].toStdString();
+    const auto& cmd = commands[i].toStdString();
 
     log_info(cmd);
 
@@ -874,18 +850,17 @@ void Install::run_profile_sys_commands(const QString& profile_name)
 }
 
 
-void Install::run_profile_user_commands(const QString& profile_name)
+void Install::run_user_commands(const QStringList& commands)
 {
-  const auto& user_username = Widgets::accounts()->user_username();
-  const auto& profile_user_commands = Profiles::get_profile(profile_name).user_commands;
+  const auto username = Widgets::accounts()->user_username();
 
-  if (!user_username.empty() && !profile_user_commands.empty())
+  if (!username.empty() && !commands.empty())
   {
-    log_info(std::format("Executing {} user commands", profile_user_commands.size()));
+    log_info("Executing user commands");
 
     ChRootUserCmd chroot;
   
-    if (!chroot.execute_commands(user_username, profile_user_commands))
+    if (!chroot.execute_commands(username, commands))
     {
       log_warning("At least one user command failed");
     }

@@ -1,0 +1,14 @@
+[
+  {
+    "name":"SDDM",
+    "tty":false,
+    "packages":["sddm"],
+    "system_commands":["systemctl enable sddm.service"]
+  },
+  {
+    "name":"GDM",
+    "tty":false,
+    "packages":["gdm"],
+    "system_commands":["systemctl enable gdm.service"]
+  }
+]

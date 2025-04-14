@@ -54,6 +54,7 @@ public:
   static void set_shell(const QString& name)  { set({name}, m_shells); }
 
   static void set_profile_packages(const QStringList& names) { set(names, m_profile); }
+  static void set_greeter_packages(const QStringList& names) { set(names, m_greeter); }
   static void set_video_packages(const QStringList& names) { set(names, m_video); }
 
 
@@ -64,6 +65,7 @@ public:
   static const PackageSet& shells() { return m_shells; }
   static const PackageSet& profile() { return m_profile; }
   static const PackageSet& video() { return m_video; }
+  static const PackageSet& greeter() { return m_greeter; }
   
 
   static void dump_kernels (QDebug& q) { dump(q, m_kernels); }
@@ -73,6 +75,7 @@ public:
   static void dump_shells (QDebug& q) { dump(q, m_shells); }
   static void dump_profile (QDebug& q) { dump(q, m_profile); }
   static void dump_additional (QDebug& q) { dump(q, m_additional); }
+  static void dump_greeter (QDebug& q) { dump(q, m_greeter); }
 
 
   static bool have_kernel () { return !m_kernels.empty(); }
@@ -127,6 +130,7 @@ private:
   static PackageSet m_shells;     // UI only permits one for now
   static PackageSet m_profile;    // packages for the profile
   static PackageSet m_video;      // packages for the video/gpu  
+  static PackageSet m_greeter;      
   static PackageSet m_additional; // user-typed
 };
 
@@ -158,6 +162,9 @@ inline QDebug operator<<(QDebug q, const Packages& p)
 
   q << "Profile:\n";
   p.dump_profile(q);
+
+  q << "Greeter:\n";
+  p.dump_greeter(q);
 
   q << "Additional:\n";
   p.dump_additional(q);

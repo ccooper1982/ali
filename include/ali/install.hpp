@@ -87,8 +87,8 @@ private:
 
   bool gpu();
   bool profile();
-  void run_profile_user_commands(const QString& profile_name);
-  void run_profile_sys_commands(const QString& profile_name);
+  void run_user_commands(const QStringList& commands);
+  void run_sys_commands(const QStringList& commands);
 
   // utils  
   bool enable_service(const std::string_view name);

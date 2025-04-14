@@ -9,6 +9,7 @@ struct ProfileSelect : public QWidget
   {
     m_tty_profiles = Profiles::get_tty_profile_names();
     m_desktop_profiles = Profiles::get_desktop_profile_names();
+    m_desktop_greeters = Profiles::get_greeter_names(false);
 
     m_layout = new QFormLayout;
     
@@ -33,7 +34,7 @@ struct ProfileSelect : public QWidget
     
     m_greeter = new QComboBox;
     m_greeter->setFixedWidth(200);
-    m_greeter->addItems({"sddm", "gdm"});
+    m_greeter->addItems({"None (tty)", "sddm", "gdm"});
 
     m_layout->addRow("Profile", m_profile);
     m_layout->addRow("Greeter", m_greeter);
@@ -45,8 +46,13 @@ struct ProfileSelect : public QWidget
     
     connect(m_profile, &QComboBox::currentTextChanged, this, [this](const QString& name)
     {
-      qDebug() << "slot";
       profile_selection_changed(name);
+    });
+
+    connect(m_greeter, &QComboBox::currentTextChanged, this, [this](const QString& name)
+    {
+      if (!name.isEmpty())
+        Packages::set_greeter_packages(Profiles::get_greeter(name).packages);
     });
     
     setLayout(m_layout);
@@ -58,7 +64,8 @@ struct ProfileSelect : public QWidget
     m_profile->clear();
     m_profile->addItems(m_tty_profiles);
     m_profile->setCurrentIndex(0);
-    m_layout->setRowVisible(1, false);
+    m_layout->setRowVisible(1, false); // hide greeter for tty
+    m_tty = true;
 
     profile_selection_changed(m_profile->currentText());
   }
@@ -70,6 +77,7 @@ struct ProfileSelect : public QWidget
     m_profile->addItems(m_desktop_profiles);
     m_profile->setCurrentIndex(0);
     m_layout->setRowVisible(1, true);
+    m_tty = false;
 
     profile_selection_changed(m_profile->currentText());
   }
@@ -80,6 +88,10 @@ struct ProfileSelect : public QWidget
     return m_profile->currentText();
   }
 
+  QString get_greeter_name() const
+  {
+    return m_greeter->currentText();
+  }
 
 private:
   void profile_selection_changed(const QString& name)
@@ -96,6 +108,10 @@ private:
       Packages::set_profile_packages(profile.packages);
 
       m_packages->setPlainText(profile.packages.join('\n'));
+      m_greeter->clear();
+      
+      m_greeter->addItem(""); // for "None" option
+      m_greeter->addItems(Profiles::get_greeter_names(m_tty));
 
       m_commands->clear();
 
@@ -128,6 +144,8 @@ protected:
   QPlainTextEdit * m_packages, * m_commands;
   QStringList m_tty_profiles;
   QStringList m_desktop_profiles;
+  QStringList m_desktop_greeters;
+  bool m_tty{true};
 };
 
 
@@ -170,9 +188,9 @@ ProfileWidget::ProfileWidget() : ContentWidget("Profiles")
 }
 
 
-QString ProfileWidget::get_data() const
+ProfileData ProfileWidget::get_data() const
 {
-  return m_profile_select->get_profile_name();
+  return {.profile_name = m_profile_select->get_profile_name(), .greeter_name = m_profile_select->get_greeter_name() };
 }
 
 

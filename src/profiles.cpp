@@ -11,16 +11,13 @@
 
 std::map<QString, Profile> Profiles::m_tty_profiles;
 std::map<QString, Profile> Profiles::m_desktop_profiles;
+std::map<QString, Profile> Profiles::m_greeters;
 
 
 static const fs::path ProfilesPath = "profiles";
-static const fs::path DesktopProfilesPath = ProfilesPath / "desktop";
-static const fs::path TtyProfilesPath = ProfilesPath / "tty";
-static const fs::path PackagesFile = "packages";
-static const fs::path SysCommandsFile = "system_commands";
-static const fs::path UserCommandsFile = "user_commands";
-static const fs::path InfoFile = "info";
-
+static const fs::path DesktopProfilesDir = ProfilesPath / "desktop";
+static const fs::path TtyProfilesDir = ProfilesPath / "tty";
+static const fs::path GreetersProfilesPath = ProfilesPath / "greeters.jsonc";
 
 bool Profiles::read()
 {
@@ -28,8 +25,9 @@ bool Profiles::read()
 
   qInfo() << "Profiles location: " << (base_dir / ProfilesPath).string();
   
-  return read_profiles(base_dir / DesktopProfilesPath, m_desktop_profiles) &&
-         read_profiles(base_dir / TtyProfilesPath, m_tty_profiles);
+  return read_profiles(base_dir / DesktopProfilesDir, m_desktop_profiles) &&
+         read_profiles(base_dir / TtyProfilesDir, m_tty_profiles) && 
+         read_greeters(base_dir / GreetersProfilesPath);
 }
 
 
@@ -37,7 +35,7 @@ bool Profiles::read_profiles(const fs::path& dir, ProfilesMap& profiles)
 {
   for (const fs::path& entry : fs::directory_iterator{dir})
   { 
-    if (!(entry.extension() == ".jsonc" || entry.extension() == ".json"))
+    if (!(fs::is_regular_file(entry) && (entry.extension() == ".jsonc" || entry.extension() == ".json")))
       continue;
 
     if (QFile file {entry}; file.open(QIODevice::ReadOnly))
@@ -66,21 +64,10 @@ bool Profiles::read_profile (const fs::path path, const QJsonDocument& doc, Prof
 
   const auto root = doc.object();
 
-  const auto valid = [&root](const QString& key, const QJsonValue::Type t, const bool required = true)
-  {
-    if (required)
-      return root.contains(key) && root[key].type() == t;
-    else if (root.contains(key) && root[key].type() != t)
-      return false;
-    else
-      return true;
-  };
-
-  auto is_valid = valid("packages", QJsonValue::Array) &&
-                  valid("system_commands", QJsonValue::Array) &&
-                  valid("user_commands", QJsonValue::Array) &&
-                  valid("name", QJsonValue::String);
-
+  auto is_valid = validate(root, "packages", QJsonValue::Array) &&
+                  validate(root, "system_commands", QJsonValue::Array) &&
+                  validate(root, "user_commands", QJsonValue::Array) &&
+                  validate(root, "name", QJsonValue::String);
 
   if (!is_valid)
     return false;
@@ -88,19 +75,6 @@ bool Profiles::read_profile (const fs::path path, const QJsonDocument& doc, Prof
   Profile profile;
   profile.is_tty = std::addressof(profiles) == std::addressof(m_tty_profiles);
   profile.name = root["name"].toString();
-
-
-  auto to_stringlist = [&profile](const QJsonArray& arr, QStringList& dest)
-  {
-    for (const auto& v : arr)
-    {
-      if (!v.isString())
-        return false;
-
-      dest.append(v.toString());
-    }
-    return true;
-  };
 
   is_valid = to_stringlist(root["packages"].toArray(), profile.packages) && 
              to_stringlist(root["system_commands"].toArray(), profile.system_commands) &&
@@ -110,6 +84,83 @@ bool Profiles::read_profile (const fs::path path, const QJsonDocument& doc, Prof
     profiles.emplace(root["name"].toString(), std::move(profile));
 
   return is_valid;
+}
+
+
+bool Profiles::read_greeters (const fs::path& path)
+{
+  if (!(fs::is_regular_file(path) && (path.extension() == ".jsonc" || path.extension() == ".json")))
+    return false;
+
+  bool ok {false};
+
+  if (QFile file {path}; file.open(QIODevice::ReadOnly))
+  {
+    if (const auto doc = QJsonDocument::fromJson(file.readAll()); doc.isNull())
+    {
+      qCritical() << "Profile JSON invalid: " << path.string();
+    }
+    else if (!doc.isArray())
+    {
+      qCritical() << "greeters file root is not an array";
+    }
+    else
+    {
+      const auto root = doc.array();
+
+      for (const auto& entry : root)
+      {
+        if (!entry.isObject())
+        {
+          qCritical() << "Must be an object";
+          continue;
+        }
+
+        const auto& greeter = entry.toObject();
+        
+        if (validate(greeter, "name", QJsonValue::String) &&
+            validate(greeter, "tty", QJsonValue::Bool) &&
+            validate(greeter, "packages", QJsonValue::Array) &&
+            validate(greeter, "system_commands", QJsonValue::Array))
+        {
+          Profile p {.name = greeter["name"].toString(), .is_tty = greeter["tty"].toBool()};
+          
+          if (to_stringlist(greeter["packages"].toArray(), p.packages) &&
+              to_stringlist(greeter["system_commands"].toArray(), p.system_commands))
+          {
+            m_greeters.emplace(greeter["name"].toString(), std::move(p));
+            ok = true;
+          }
+        }
+      }
+    }
+  }
+
+  return ok;
+}
+
+
+bool Profiles::validate(const QJsonObject& root, const QString& key, const QJsonValue::Type t, const bool required)
+{
+  if (required)
+    return root.contains(key) && root[key].type() == t;
+  else if (root.contains(key) && root[key].type() != t)
+    return false;
+  else
+    return true;
+}
+
+
+bool Profiles::to_stringlist(const QJsonArray& arr, QStringList& dest)
+{
+  for (const auto& v : arr)
+  {
+    if (!v.isString())
+      return false;
+
+    dest.append(v.toString());
+  }
+  return true;
 }
 
 
@@ -137,6 +188,21 @@ QStringList Profiles::get_tty_profile_names()
 }
 
 
+QStringList Profiles::get_greeter_names(const bool tty)
+{
+  QStringList list;
+
+  for(const auto& [name, profile] : m_greeters)
+  {
+    if (profile.is_tty == tty)
+      list.append(name);
+  }
+
+  list.sort();
+  return list;
+}
+
+
 const Profile& Profiles::get_profile(const QString& name)
 {
   if (m_desktop_profiles.contains(name))
@@ -145,4 +211,13 @@ const Profile& Profiles::get_profile(const QString& name)
     return m_tty_profiles.at(name);
   else
     throw std::runtime_error{std::format("Profile {} does not exist", name.toStdString())};
+}
+
+
+const Profile& Profiles::get_greeter(const QString& name)
+{
+  if (m_greeters.contains(name))
+    return m_greeters.at(name);
+  else
+    throw std::runtime_error{std::format("Greeter {} does not exist", name.toStdString())};
 }
