@@ -26,11 +26,14 @@
     "pulseaudio",
     "pulseaudio-bluetooth",
     "pulseaudio-alsa",
-    "pavucontrol"
+    "pavucontrol",
+    "iwd",
+    "iw"
   ],
   "system_commands":
   [
-    "systemctl enable bluetooth.service"
+    "systemctl enable bluetooth.service",
+    "systemctl enable iwd.service"
   ],
   "user_commands":
   [

@@ -398,32 +398,37 @@ bool Install::localise()
 // network
 bool Install::network()
 {
-  // This assumes `iwd` is the only network manager. The UI should warn
-  // if NetworkManager is installed.
-
   const auto data = Widgets::network()->get_data();
-
-  ChRootCmd hostname_cmd{std::format("echo \"{}\" > /etc/hostname", data.hostname)};
-  if (hostname_cmd.execute() != CmdSuccess)
-    log_warning("Failed to set /etc/hostname");
-
+  
+  {
+    std::ofstream host_stream {RootMnt / "etc/hostname", std::ios_base::out | std::ios_base::trunc};
+    if (host_stream.good())
+      host_stream << data.hostname << '\n';
+    else
+      log_warning("Failed to set /etc/hostname");
+  }
+  
   // intentionally continuing if hostname is unset
   if (data.copy_config)
   {
-    // iwd config: https://wiki.archlinux.org/title/Iwd#Network_configuration
-    static const fs::path iwd_config_src {"/var/lib/iwd"};
-    static const fs::path iwd_config_dest {RootMnt / "var/lib/iwd"};
     static const fs::path sysd_config_src {"/etc/systemd/network"};
     static const fs::path sysd_config_dest {RootMnt / "etc/systemd/network"};
 
-    
-    // iwd
-    if (copy_files(iwd_config_src, iwd_config_dest, {".psk", ".open", ".8021x"}))
-      enable_service("iwd.service");
-    else
-      log_critical("Failed to configure iwd");  
+    // some DE uses NetworkManager and others use IWD. 
+    // TODO don't handle cases where NetworkManager is configured to use iwd as a backend
+    if (Packages::have_package("iwd"))
+    {
+      // iwd config: https://wiki.archlinux.org/title/Iwd#Network_configuration
+      static const fs::path iwd_config_src {"/var/lib/iwd"};
+      static const fs::path iwd_config_dest {RootMnt / "var/lib/iwd"};
 
-    // systemd-networkd
+      if (copy_files(iwd_config_src, iwd_config_dest, {".psk", ".open", ".8021x"}))
+        enable_service("iwd.service");
+      else
+        log_critical("Failed to configure iwd");  
+    }
+
+    // systemd-networkd: we always configure
     if (copy_files(sysd_config_src, sysd_config_dest, {".network", ".netdev", ".link"}))
     {
       enable_service("systemd-networkd.service");

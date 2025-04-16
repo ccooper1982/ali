@@ -9,11 +9,13 @@
     "blueman",
     "bluez-utils",
     "xed",
-    "xdg-user-dirs-gtk"
+    "xdg-user-dirs-gtk",
+    "networkmanager"
   ],
   "system_commands":
   [
-    "systemctl enable bluetooth.service"
+    "systemctl enable bluetooth.service",
+    "systemctl enable NetworkManager.service"
   ],
   "user_commands":
   [

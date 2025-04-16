@@ -14,18 +14,16 @@
 static const QStringList Required =
 {
   "base",
-  "iwd",
-  "iw",
-  "usb_modeswitch",
+  "usb_modeswitch", // for usb devices that can switch modes (recharging/something else)
   "usbmuxd",
   "usbutils",
-  "reflector",
-  "dmidecode",
-  "e2fsprogs",
-  "gpm",
-  "less",
-  "lshw"
+  "reflector",      // pacman mirrors list
+  "dmidecode",      // BIOS / hardware info, may not actually be useful for most users
+  "e2fsprogs",      // useful
+  "gpm",            // laptop touchpad support
+  "less"            // useful
 };
+
 
 enum class Type { Kernel, Firmware, Required, Important, Shell };
 

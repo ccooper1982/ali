@@ -81,6 +81,20 @@ public:
   static bool have_kernel () { return !m_kernels.empty(); }
   static bool have_required () { return !m_required.empty(); }
 
+  static bool have_package(const QString& name)
+  {
+    auto contains = [&name](const PackageSet& ps)
+    {
+      return ps.contains(name);
+    };
+
+    // a tad ugly
+    return  contains(m_additional) || contains(m_profile) || contains(m_kernels) ||
+            contains(m_required) || contains(m_important) || contains(m_video) ||
+            contains(m_shells) || contains(m_greeter) ;
+  }
+  
+
 private:
 
   static void add(const QString& name, PackageSet& ps)
