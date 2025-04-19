@@ -92,6 +92,9 @@
     "filesystem": "cpp",
     "qdebug": "cpp",
     "qlabel": "cpp",
-    "qjsonobject": "cpp"
+    "qjsonobject": "cpp",
+    "qnetworkreply": "cpp",
+    "barrier": "cpp",
+    "latch": "cpp"
   }
 }

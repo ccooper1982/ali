@@ -66,6 +66,7 @@ public:
   static const PackageSet& profile() { return m_profile; }
   static const PackageSet& video() { return m_video; }
   static const PackageSet& greeter() { return m_greeter; }
+  static const PackageSet& additional() { return m_additional; }
   
 
   static void dump_kernels (QDebug& q) { dump(q, m_kernels); }

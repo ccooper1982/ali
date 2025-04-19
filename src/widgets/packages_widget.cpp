@@ -1,13 +1,7 @@
 #include <ali/widgets/packages_widget.hpp>
 #include <ali/commands.hpp>
 #include <ali/packages.hpp>
-#include <QFormLayout>
-#include <QVBoxLayout>
-#include <QHBoxLayout>
-#include <QGroupBox>
-#include <QButtonGroup>
-#include <QCheckBox>
-#include <QBitArray>
+#include <barrier>
 #include <QtTypes>
 
 
@@ -25,7 +19,98 @@ static const QStringList Required =
 };
 
 
+// TODO this could be moved to Packages.hpp and renamed to PackageType
 enum class Type { Kernel, Firmware, Required, Important, Shell };
+
+
+struct AdditionalPackagesWidget : public QWidget
+{
+  AdditionalPackagesWidget (QWidget* parent = nullptr) : QWidget(parent)
+  {
+    auto layout = new QVBoxLayout;
+    layout->setAlignment(Qt::AlignTop);
+
+    auto form_layout = new QFormLayout;
+    form_layout->setFormAlignment(Qt::AlignTop);
+        
+    form_layout->addRow(new QLabel{"Type package names separated by a space, i.e. 'git firefox'. If any do not exist they remain in the text box."});
+    form_layout->addItem(new QSpacerItem(0,20));
+
+    {
+      auto * search_pkg_layout = new QHBoxLayout;
+      search_pkg_layout->setAlignment(Qt::AlignTop);
+
+      m_package_names = new QLineEdit;
+      m_package_names->setFixedWidth(300);
+
+      m_search_btn = new QPushButton{"Search"};
+      m_search_btn->setFixedWidth(100);
+
+      connect(&package_search, &PackageSearch::on_complete, this, [this](const QStringList exist, const QStringList invalid)
+      {
+        m_package_names->setText(invalid.join(' '));
+                
+        Packages::add_additional(exist);
+        
+        // clear the list, and add again reading from Packages.
+        // Packages uses a set so we avoid duplicates and the UI will reflect
+        // exactly what will be installed
+        m_confirmed_packages->clear();
+        for (const auto& pkg : Packages::additional())
+          m_confirmed_packages->addItem(pkg.name);
+
+        m_search_btn->setEnabled(true);
+      });
+      
+      connect(m_search_btn, &QPushButton::clicked, this, &AdditionalPackagesWidget::do_search);
+      connect(m_package_names, &QLineEdit::returnPressed, this, &AdditionalPackagesWidget::do_search);
+
+
+      search_pkg_layout->addWidget(m_package_names);
+      search_pkg_layout->addWidget(m_search_btn);
+
+      form_layout->addRow("Packages", search_pkg_layout);
+    }
+
+    {
+      m_confirmed_packages = new QListWidget;
+      m_confirmed_packages->setFixedWidth(200);
+      m_confirmed_packages->setMaximumHeight(200);
+
+      form_layout->addRow("To Install", m_confirmed_packages);
+    }
+        
+    layout->addLayout(form_layout);
+    layout->addStretch(1);
+
+    setLayout(layout);
+  }
+
+
+private:
+  void do_search()
+  {
+    if (m_package_names->text().isEmpty()) 
+      return;
+
+    m_search_btn->setEnabled(false);
+
+    try
+    {
+      package_search.search(m_package_names->text());
+    }
+    catch(const std::exception& e)
+    {
+      qCritical() << e.what();
+    }
+  }
+
+private:  
+  QLineEdit * m_package_names;
+  QListWidget * m_confirmed_packages;
+  PackageSearch package_search;
+  QPushButton * m_search_btn;
+};
 
 
 struct SelectPackagesWidget : public QWidget
@@ -200,9 +285,18 @@ PackagesWidget::PackagesWidget() : ContentWidget("Packages")
     m_shell = SelectPackagesWidget::one_required({"bash", "zsh", "ksh", "fish", "nushell"}, Type::Shell);
     
     QGroupBox * group_shell = new QGroupBox("Shell");
-    group_shell->setLayout(m_shell->layout());    
+    group_shell->setLayout(m_shell->layout());
 
     layout->addWidget(group_shell);
+  }
+
+  {
+    m_additional = new AdditionalPackagesWidget;
+    
+    QGroupBox * group_additional = new QGroupBox("Additional");
+    group_additional->setLayout(m_additional->layout());
+
+    layout->addWidget(group_additional);
   }
   
   setLayout(layout);

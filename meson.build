@@ -25,7 +25,7 @@ endif
 
 blkid_dep = dependency('blkid', required: true)
 libmount_dep = dependency('mount', required: true)
-qt6_dep = dependency('qt6', required: true, modules: ['Core', 'Gui', 'Widgets'])
+qt6_dep = dependency('qt6', required: true, modules: ['Core', 'Gui', 'Widgets', 'Network'])
 
 sources = [
     'src/install.cpp',
@@ -49,7 +49,8 @@ includes = include_directories('include')
 
 # qt6 wrangle
 moc_includes = ['include/ali/install.hpp',
-                          'include/ali/widgets/install_widget.hpp'
+                          'include/ali/widgets/install_widget.hpp',
+                          'include/ali/widgets/packages_widget.hpp'
                          ]
 
 qt6 = import('qt6')
