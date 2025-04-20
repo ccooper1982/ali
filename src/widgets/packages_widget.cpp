@@ -32,19 +32,21 @@ struct AdditionalPackagesWidget : public QWidget
 
     auto form_layout = new QFormLayout;
     form_layout->setFormAlignment(Qt::AlignTop);
+    form_layout->setAlignment(Qt::AlignTop);
+    form_layout->setVerticalSpacing(10);
         
     form_layout->addRow(new QLabel{"Type package names separated by a space, i.e. 'git firefox'. If any do not exist they remain in the text box."});
-    form_layout->addItem(new QSpacerItem(0,20));
 
     {
       auto * search_pkg_layout = new QHBoxLayout;
       search_pkg_layout->setAlignment(Qt::AlignTop);
+      search_pkg_layout->setSpacing(10);
 
       m_package_names = new QLineEdit;
       m_package_names->setFixedWidth(300);
 
       m_search_btn = new QPushButton{"Search"};
-      m_search_btn->setFixedWidth(100);
+      m_search_btn->setFixedWidth(130);
 
       connect(&package_search, &PackageSearch::on_complete, this, [this](const QStringList exist, const QStringList invalid)
       {
@@ -52,14 +54,10 @@ struct AdditionalPackagesWidget : public QWidget
                 
         Packages::add_additional(exist);
         
-        // clear the list, and add again reading from Packages.
-        // Packages uses a set so we avoid duplicates and the UI will reflect
-        // exactly what will be installed
-        m_confirmed_packages->clear();
-        for (const auto& pkg : Packages::additional())
-          m_confirmed_packages->addItem(pkg.name);
+        refresh_to_install();
 
         m_search_btn->setEnabled(true);
+        m_rmv_btn->setEnabled(true);
       });
       
       connect(m_search_btn, &QPushButton::clicked, this, &AdditionalPackagesWidget::do_search);
@@ -73,11 +71,37 @@ struct AdditionalPackagesWidget : public QWidget
     }
 
     {
+      auto * confirmed_layout = new QHBoxLayout;
+      confirmed_layout->setAlignment(Qt::AlignTop);
+      confirmed_layout->setSpacing(10);
+      
       m_confirmed_packages = new QListWidget;
       m_confirmed_packages->setFixedWidth(200);
       m_confirmed_packages->setMaximumHeight(200);
+      m_confirmed_packages->setSelectionBehavior(QAbstractItemView::SelectRows);
+      m_confirmed_packages->setSelectionMode(QAbstractItemView::MultiSelection);
 
-      form_layout->addRow("To Install", m_confirmed_packages);
+      m_rmv_btn = new QPushButton{"Remove Selected"};
+      m_rmv_btn->setFixedWidth(130);
+
+      connect(m_rmv_btn, &QPushButton::clicked, this, [this]()
+      {
+        QStringList remove;
+
+        for (const auto item : m_confirmed_packages->selectedItems())
+          remove.append(item->text());
+
+        if (!remove.isEmpty())
+        {
+          Packages::remove_additional(remove);
+          refresh_to_install();
+        }
+      });
+
+      confirmed_layout->addWidget(m_confirmed_packages);
+      confirmed_layout->addWidget(m_rmv_btn, 0, Qt::AlignTop);
+
+      form_layout->addRow("To Install", confirmed_layout);
     }
         
     layout->addLayout(form_layout);
@@ -93,6 +117,7 @@ private:
     if (m_package_names->text().isEmpty()) 
       return;
 
+    m_rmv_btn->setEnabled(false);
     m_search_btn->setEnabled(false);
 
     try
@@ -104,12 +129,24 @@ private:
       qCritical() << e.what();
     }
   }
+  
+
+  void refresh_to_install()
+  {
+    // clear the list, and add again reading from Packages.
+    // Packages uses a set so we avoid duplicates and the UI will reflect
+    // exactly what will be installed
+    m_confirmed_packages->clear();
+    for (const auto& pkg : Packages::additional())
+      m_confirmed_packages->addItem(pkg.name);
+  }
+
 
 private:  
   QLineEdit * m_package_names;
   QListWidget * m_confirmed_packages;
   PackageSearch package_search;
-  QPushButton * m_search_btn;
+  QPushButton * m_search_btn, * m_rmv_btn;
 };
 
 

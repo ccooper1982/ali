@@ -39,16 +39,19 @@ public:
 
       bool found{false};
 
-      const auto data = m_reply->readAll();
+      if (const auto status = m_reply->attribute(QNetworkRequest::HttpStatusCodeAttribute); status.toInt() == 200)
+      {
+        const auto data = m_reply->readAll();
 
-      if (const auto doc = QJsonDocument::fromJson(data); doc.isNull())
-        qCritical() << "Package searched returned invalid JSON";
-      else if (!doc.isObject())
-        qCritical() << "Package search JSON root is not an object";
-      else if (const auto root = doc.object(); !(root.contains("results") && root["results"].isArray()))
-        qCritical() << "JSON does not contian 'results' or it is not an array";
-      else
-        found = !root["results"].toArray().isEmpty(); 
+        if (const auto doc = QJsonDocument::fromJson(data); doc.isNull())
+          qCritical() << "Package search returned invalid JSON";
+        else if (!doc.isObject())
+          qCritical() << "Package search JSON root is not an object";
+        else if (const auto root = doc.object(); !(root.contains("results") && root["results"].isArray()))
+          qCritical() << "JSON does not contain 'results' or it is not an array";
+        else
+          found = !root["results"].toArray().isEmpty(); 
+      }
 
       emit on_finish(name, found);
     });
