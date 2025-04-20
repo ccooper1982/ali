@@ -86,9 +86,12 @@ private:
   bool network();
 
   bool gpu();
+  
   bool profile();
   void run_user_commands(const QStringList& commands);
   void run_sys_commands(const QStringList& commands);
+
+  bool packages();
 
   // utils  
   bool enable_service(const std::string_view name);

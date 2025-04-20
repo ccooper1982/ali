@@ -86,6 +86,7 @@ void Install::install ()
       // shell is extra because 'bash' is installed as part of 'base'
       const bool extra =  exec_stage(&Install::shell, "shell") &&
                           exec_stage(&Install::profile, "profile") &&
+                          exec_stage(&Install::packages, "packages") &&
                           exec_stage(&Install::gpu, "video") &&
                           exec_stage(&Install::localise, "locale");
       
@@ -390,7 +391,7 @@ bool Install::localise()
     log_warning("Setting key map failed");
   }
 
-  // locale not considered essential, failure is more of an annoyance
+  // locale not considered essential, failure is an annoyance
   return true; 
 }
 
@@ -870,6 +871,20 @@ void Install::run_user_commands(const QStringList& commands)
       log_warning("At least one user command failed");
     }
   }
+}
+
+
+// additional packages
+bool Install::packages()
+{
+  const auto& additional = Packages::additional();
+
+  log_info(std::format("Installing {} additional packages", additional.size()));
+
+  pacman_install(additional);
+
+  // failing to install additional is not a reason to prevent working system
+  return true;
 }
 
 
