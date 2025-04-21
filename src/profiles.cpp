@@ -17,7 +17,7 @@ std::map<QString, Profile> Profiles::m_greeters;
 static const fs::path ProfilesPath = "profiles";
 static const fs::path DesktopProfilesDir = ProfilesPath / "desktop";
 static const fs::path TtyProfilesDir = ProfilesPath / "tty";
-static const fs::path GreetersProfilesPath = ProfilesPath / "greeters.jsonc";
+static const fs::path GreetersProfilesPath = ProfilesPath / "greeters.json";
 
 bool Profiles::read()
 {
@@ -35,7 +35,7 @@ bool Profiles::read_profiles(const fs::path& dir, ProfilesMap& profiles)
 {
   for (const fs::path& entry : fs::directory_iterator{dir})
   { 
-    if (!(fs::is_regular_file(entry) && (entry.extension() == ".jsonc" || entry.extension() == ".json")))
+    if (!(fs::is_regular_file(entry) && entry.extension() == ".json"))
       continue;
 
     if (QFile file {entry}; file.open(QIODevice::ReadOnly))
@@ -89,7 +89,7 @@ bool Profiles::read_profile (const fs::path path, const QJsonDocument& doc, Prof
 
 bool Profiles::read_greeters (const fs::path& path)
 {
-  if (!(fs::is_regular_file(path) && (path.extension() == ".jsonc" || path.extension() == ".json")))
+  if (!(fs::is_regular_file(path) && path.extension() == ".json"))
     return false;
 
   bool ok {false};
