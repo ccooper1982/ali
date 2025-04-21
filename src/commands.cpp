@@ -68,7 +68,14 @@ int Command::execute (const std::string_view cmd, const int max_lines)
     if (m_handler && n_chars)
       m_handler(std::string_view {buff, n_chars});
 
-    return (m_result = close());
+    m_result = close();
+
+    if (m_result != CmdSuccess)
+    {
+      qCritical() << "Command {" << cmd << "} failed: " << ::strerror(m_result);
+    }
+    
+    return m_result;
   }
   else
     return CmdFail;

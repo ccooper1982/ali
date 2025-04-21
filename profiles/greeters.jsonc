@@ -15,7 +15,11 @@
     "name":"LightDM GTK",
     "tty":false,
     "packages":["lightdm", "lightdm-gtk-greeter", "lightdm-gtk-greeter-settings"],
-    "system_commands":["systemctl enable lightdm.service"]
+    "system_commands":
+    [
+      "systemctl enable lightdm.service",
+      "sed -i 's|#background=.*|background=/usr/share/backgrounds/arch.png|g' /etc/lightdm/lightdm-gtk-greeter.conf"
+    ]
   },
   {
     "name":"LightDM Slick",
