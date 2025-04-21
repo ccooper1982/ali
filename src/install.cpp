@@ -571,7 +571,7 @@ bool Install::set_password(const std::string_view user, const std::string_view p
 
   bool pass_set{false};
 
-  ChRootCmd cmd_passwd{std::format("echo {}:{} | chpasswd", user, pass)};
+  ChRootCmd cmd_passwd{std::format("echo {}:{} | chpasswd", user, pass), true};
   if (cmd_passwd.execute() == CmdSuccess)
   {
     qDebug() << "chpasswd success";
@@ -586,7 +586,7 @@ bool Install::set_password(const std::string_view user, const std::string_view p
         if (const auto pos = out.find(' '); pos != std::string_view::npos)
           pass_set = out.substr(pos+1, 1) == "P";
       }
-    }, false};
+    }};
 
     cmd_check.execute(); // if this fails, pass_valid remains false
   }
@@ -776,16 +776,12 @@ bool Install::shell()
 
 bool Install::gpu()
 {
-  
-
   log_info(std::format("Installing video packages"));
 
   if (const auto packages = Packages::video(); !pacman_install(packages))
   {
     log_critical("Video packages install failed");
   }
-
-  
 
   return true;
 }
@@ -836,26 +832,6 @@ void Install::run_sys_commands(const QStringList& commands)
   {
     log_critical("System command failed");
   }
-  
-  /*
-  for (QStringList::size_type i = 0 ; i < commands.size() ; ++i)
-  {
-    const auto& cmd = commands[i].toStdString();
-
-    log_info(cmd);
-
-    ChRootCmd install {cmd, [this](const std::string_view out)
-    {
-      log_info(out);
-    }};
-
-    if (install.execute() != CmdSuccess)
-    {
-      // may as well continue
-      log_critical("System command failed");
-    }
-  }
-  */
 }
 
 
@@ -973,7 +949,7 @@ bool Install::pacman_install(const PackageSet& packages)
   ChRootCmd install {install_cmd, [this](const std::string_view out)
   {
     log_info(out);
-  }, false};
+  }};
 
   if (const int r = install.execute(); r != CmdSuccess)
   {

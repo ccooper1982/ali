@@ -103,12 +103,12 @@ private:
 
 
 public:
-  ChRootCmd(const std::string_view cmd, const bool launch_shell = true) : Command(launch_shell ? create_shell_cmd(cmd) : create_cmd(cmd))
+  ChRootCmd(const std::string_view cmd, const bool launch_shell = false) : Command(launch_shell ? create_shell_cmd(cmd) : create_cmd(cmd))
   {
 
   }
 
-  ChRootCmd(const std::string_view cmd, std::function<void(const std::string_view)>&& on_output, const bool launch_shell = true) :
+  ChRootCmd(const std::string_view cmd, std::function<void(const std::string_view)>&& on_output, const bool launch_shell = false) :
     Command(launch_shell ? create_shell_cmd(cmd) : create_cmd(cmd), std::move(on_output))
   {
 
@@ -121,55 +121,6 @@ public:
 
   }
 };
-
-
-/*
-// Runs a single command as chroot.
-struct ChRootCmd : public Command
-{
-  ChRootCmd(const std::string_view cmd) :
-    Command(std::format("arch-chroot {} {}", RootMnt.string(), cmd))
-  {
-
-  }
-
-  ChRootCmd(const std::string_view cmd, std::function<void(const std::string_view)>&& on_output) :
-    Command(std::format("arch-chroot {} {}", RootMnt.string(), cmd), std::move(on_output))
-  {
-
-  }
-};
-
-
-
-struct ChRootUserCmd : public Command
-{
-  ChRootUserCmd() :  Command()
-  {
-    
-  }
-
-
-  bool execute_commands (const std::string_view user, const QStringList& cmds)
-  {
-    std::stringstream ss;
-    ss << "(";
-    ss << std::format(R"!(echo "cd /home/{}"; )!", user);
-    ss << std::format(R"!(echo "su {}"; )!", user);
-
-    for (const auto& cmd : cmds)
-      ss << std::format(R"!(echo "{}"; )!", cmd.toStdString());
-
-    ss << " exit;) | arch-chroot " << RootMnt.string();
-
-    const auto cmd_string = ss.str();
-
-    qDebug() << cmd_string;
-    
-    return execute(cmd_string) == CmdSuccess;
-  }
-};
-*/
 
 
 struct CommandExist : public Command
