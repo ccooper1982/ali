@@ -14,8 +14,11 @@ inline const int CmdFail = -1;
 using OutputHandler = std::function<void(const std::string_view)>;
 
 
-// TODO Command has become a bit untidy after adding writing and ChRootUserCmd
-//      Maybe split out between ReadCommand and WriteCommand
+// TODO Commands have become untidy:
+//      - Maybe split out between ReadCommand and WriteCommand
+//      - Find a tidier way of handling ChRootCmd, which can do a single command or multiple (with execute_commands())
+
+
 struct Command
 {
   Command ();
@@ -56,6 +59,71 @@ private:
 };
 
 
+// This command is equivalent of doing this in terminal for user1:
+//  (echo "cd /home/user1"; echo "su user1"; echo "<command1>"; echo "<command2>";) | arch-chroot /mnt
+// We `su` so that `~` can be used in the user commands.
+
+// Can't use `arch-chroot -u <username>` because it doesn't appear to 'become' the user, i.e.
+// `cd ~` doesn't change to the user's home (it remains in /root). Or I'm misusing it.
+struct ChRootCmd : public Command
+{
+private:
+  static std::string create_cmd(const std::string_view cmd)
+  {
+    return std::format("arch-chroot {} {}", RootMnt.string(), cmd) ;
+  }
+
+  static std::string create_shell_cmd(const std::string_view cmd)
+  {
+    return create_shell_cmd({QString::fromLocal8Bit(cmd.data(), cmd.size())}) ;
+  }
+
+
+  static std::string create_shell_cmd(const QStringList& cmds, const std::string_view user = "")
+  {
+    std::stringstream ss;
+    ss << "(";
+
+    if (!user.empty())
+    {
+      ss << std::format(R"!(echo "cd /home/{}"; )!", user);
+      ss << std::format(R"!(echo "su {}"; )!", user);
+    }
+
+    for (const auto& cmd : cmds)
+      ss << std::format(R"!(echo "{}"; )!", cmd.toStdString());
+
+    ss << " exit;) | arch-chroot " << RootMnt.string();
+
+    const auto cmd_string = ss.str();
+
+    qDebug() << cmd_string;
+    return cmd_string;
+  }
+
+
+public:
+  ChRootCmd(const std::string_view cmd, const bool launch_shell = true) : Command(launch_shell ? create_shell_cmd(cmd) : create_cmd(cmd))
+  {
+
+  }
+
+  ChRootCmd(const std::string_view cmd, std::function<void(const std::string_view)>&& on_output, const bool launch_shell = true) :
+    Command(launch_shell ? create_shell_cmd(cmd) : create_cmd(cmd), std::move(on_output))
+  {
+
+  }
+
+  // run commands are user: when user is set, when entering chroot, we `su {user}` before
+  // executing commands. If running at root, leave `user` empty.
+  ChRootCmd(const QStringList& cmds, const std::string_view user = "") : Command(create_shell_cmd(cmds, user))
+  {
+
+  }
+};
+
+
+/*
 // Runs a single command as chroot.
 struct ChRootCmd : public Command
 {
@@ -73,13 +141,9 @@ struct ChRootCmd : public Command
 };
 
 
-// This command is equivalent of doing this in terminal for user1:
-//  (echo "cd /home/user1"; echo "su user1"; echo "<command1>"; echo "<command2>";) | arch-chroot /mnt
-// We `su` so that `~` can be used in the user commands.
+
 struct ChRootUserCmd : public Command
 {
-  // Can't use `arch-chroot -u <username>` because it doesn't appear to 'become' the user, i.e.
-  // `cd ~` doesn't change to the user's home (it remains in /root). Or I'm misusing it.
   ChRootUserCmd() :  Command()
   {
     
@@ -105,6 +169,7 @@ struct ChRootUserCmd : public Command
     return execute(cmd_string) == CmdSuccess;
   }
 };
+*/
 
 
 struct CommandExist : public Command

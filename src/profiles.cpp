@@ -121,16 +121,19 @@ bool Profiles::read_greeters (const fs::path& path)
         if (validate(greeter, "name", QJsonValue::String) &&
             validate(greeter, "tty", QJsonValue::Bool) &&
             validate(greeter, "packages", QJsonValue::Array) &&
-            validate(greeter, "system_commands", QJsonValue::Array))
+            validate(greeter, "system_commands", QJsonValue::Array) &&
+            validate(greeter, "user_commands", QJsonValue::Array, false))
         {
           Profile p {.name = greeter["name"].toString(), .is_tty = greeter["tty"].toBool()};
           
-          if (to_stringlist(greeter["packages"].toArray(), p.packages) &&
-              to_stringlist(greeter["system_commands"].toArray(), p.system_commands))
-          {
+          ok = to_stringlist(greeter["packages"].toArray(), p.packages) &&
+               to_stringlist(greeter["system_commands"].toArray(), p.system_commands);
+
+          if (ok && greeter.contains("user_commands"))
+            ok = to_stringlist(greeter["user_commands"].toArray(), p.user_commands);
+
+          if (ok)
             m_greeters.emplace(greeter["name"].toString(), std::move(p));
-            ok = true;
-          }
         }
       }
     }
@@ -144,10 +147,10 @@ bool Profiles::validate(const QJsonObject& root, const QString& key, const QJson
 {
   if (required)
     return root.contains(key) && root[key].type() == t;
-  else if (root.contains(key) && root[key].type() != t)
-    return false;
-  else
+  else if (!root.contains(key))
     return true;
+  else
+    return root[key].type() == t;
 }
 
 

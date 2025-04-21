@@ -310,41 +310,38 @@ bool Install::pacman_strap()
 
 bool Install::swap()
 {
-  bool ok = true;
+  bool ok = false;
 
   const auto data = Widgets::swap()->get_data();
 
   if (data.zram_enabled)
   {
-    static const fs::path ZramConfig {RootMnt / "etc/systemd/zram-generator.conf"};
-
     log_info("Installing zram generator");
-    ChRootCmd cmd{"pacman -Sy --noconfirm zram-generator", [this](const std::string_view output)
+    
+    if (pacman_install({"zram-generator"}))
     {
-      qDebug() << output;
-      log_info(output);
-    }};
+      static const fs::path ZramConfig {RootMnt / "etc/systemd/zram-generator.conf"};
 
-    if (cmd.execute() == CmdSuccess)
-    {
-      // write the config, keep it simple for now, with values suggested in wiki
-      std::ofstream cfg_file{ZramConfig};
-      cfg_file << "[zram0]\n";
-      cfg_file << "zram-size = min(ram / 2, 4096)\n";
-      cfg_file << "compression-algorithm = zstd";
-    }
+      {
+        // write the config, keep it simple for now, with values suggested in wiki
+        std::ofstream cfg_file{ZramConfig, std::ios_base::out | std::ios_base::trunc};
+        cfg_file << "[zram0]\n";
+        cfg_file << "zram-size = min(ram / 2, 4096)\n";
+        cfg_file << "compression-algorithm = zstd";
+      }
+          
+      if (fs::exists(ZramConfig) && fs::file_size(ZramConfig))
+      {
+        ok = enable_service("systemd-zram-setup@zram0.service");
+      }
+      else
+      {
+        log_critical("Failed to create zram config") ; 
 
-    if (ok = fs::exists(ZramConfig) && fs::file_size(ZramConfig); ok)
-    {
-      enable_service("systemd-zram-setup@zram0.service");
-    }
-    else
-    {
-      log_critical("Failed to create zram config") ; // TODO log_warning
-
-      // delete if it exists, rather than leaving a potentially broken configuration
-      if (fs::exists(ZramConfig))
-        fs::remove(ZramConfig);
+        // delete if it exists, rather than leaving a potentially broken configuration
+        if (fs::exists(ZramConfig))
+          fs::remove(ZramConfig);
+      }
     }
   }
 
@@ -570,52 +567,45 @@ bool Install::add_to_sudoers(const std::string& user)
 
 bool Install::set_password(const std::string_view user, const std::string_view pass)
 {
-  
   log_info(std::format("Setting password for {}", user));
 
-  bool pass_set{false}, pass_valid{false};
+  bool pass_set{false};
 
-  ChRootCmd cmd_passwd{"chpasswd"};
-  if (cmd_passwd.execute_write(std::format("{}:{}", user, pass)) == CmdSuccess)
+  ChRootCmd cmd_passwd{std::format("echo {}:{} | chpasswd", user, pass)};
+  if (cmd_passwd.execute() == CmdSuccess)
   {
-    pass_set = true;
+    qDebug() << "chpasswd success";
 
-    ChRootCmd cmd_check{std::format("passwd -S {}", user), [&user, &pass_valid](const std::string_view out)
+    // we don't launch shell so that the output of `passwd` command is the only output returned
+    ChRootCmd cmd_check{std::format("passwd -S {}", user), [&user, &pass_set](const std::string_view out)
     {
+      qDebug () << "Password check returns: " << out;
+
       if (out.size() > user.size()) // at least "<user> P"
       {
         if (const auto pos = out.find(' '); pos != std::string_view::npos)
-          pass_valid = out.substr(pos+1, 1) == "P";
+          pass_set = out.substr(pos+1, 1) == "P";
       }
-    }};
+    }, false};
 
     cmd_check.execute(); // if this fails, pass_valid remains false
   }
-  
-  
 
-  return pass_set && pass_valid;
+  return pass_set;
 }
 
 
 // bootloader
 bool Install::boot_loader()
 {
-  
-
   bool ok = false;
   int r = 0;
 
   // TODO: systemd-boot
 
-  ChRootCmd install {"pacman -Sy --noconfirm grub efibootmgr os-prober", [this](const std::string_view out)
+  if (!pacman_install({"grub", "efibootmgr", "os-prober"}))
   {
-    log_info(out);
-  }};
-
-  if (r = install.execute(); r != CmdSuccess)
-  {
-    log_critical(std::format("pacman install of grub and efibootmgr: {}", strerror(r)));
+    log_critical("pacman install failed");
   }
   else
   {
@@ -637,28 +627,22 @@ bool Install::boot_loader()
         // not a reason to stop: it's annoying for user but they can still have a working Arch
         log_critical("Failed to setup for grub's os-prober");
       }
-
-      // TODO if multiple kernels installed, can have option to remove the GRUB submenu so switching kernels
-      //      is quicker. Have option for this because some prefer the submenu.
-      //      In /etc/default/grub, append GRUB_SAVE_DEFAULT=true (remember last selection) and
-      //      GRUB_DISABLE_SUBMENU=y (remove submenu)
-      
-      ChRootCmd grub_config{"grub-mkconfig -o /boot/grub/grub.cfg", [this](const std::string_view out)
-      {
-        log_info(out);
-      }};
-
-      if (r = grub_config.execute(); r != CmdSuccess)
-        log_critical(std::format("grub-mkconfig failed: {}", strerror(r)));
       else
-        ok = true;
-    
-      
+      {
+        ChRootCmd grub_config{"grub-mkconfig -o /boot/grub/grub.cfg", [this](const std::string_view out)
+        {
+          log_info(out);
+        }};
+  
+        if (r = grub_config.execute(); r != CmdSuccess)
+          log_critical(std::format("grub-mkconfig failed: {}", strerror(r)));
+        else
+          ok = true;
+      }
+
       cleanup_grub_probe();
     }
   }
-
-  
 
   return ok;
 }
@@ -751,13 +735,15 @@ void Install::cleanup_grub_probe()
 // shell
 bool Install::shell()
 {
+  using namespace std::string_view_literals;
+
   const auto created_user = Widgets::accounts()->user_username();
   const auto user = created_user.empty() ? "root" : created_user;
   
   // Packages permits multiple shells, but the UI and this function only installs one
   const auto selected_shells = Packages::shells();
 
-  if (selected_shells.contains(Package{"bash"}))
+  if (selected_shells.contains(Package{"bash"sv}))
   {
     log_info("bash selected, which is the default. Nothing to do");
   }
@@ -812,9 +798,15 @@ bool Install::profile()
   const auto profile_packages = Packages::profile();
       
   log_info(std::format("Applying profile {}", profile_name.toStdString()));
-  
+ 
   if (pacman_install(profile_packages))
   {
+    // copy arch background
+    std::error_code ec;
+    fs::create_directories(RootMnt / "usr/share/backgrounds", ec);
+    fs::copy_file("/root/wallpapers/bg.jpg", fs::path{RootMnt / "usr/share/backgrounds/arch.png"}, ec);
+
+
     const auto& profile = Profiles::get_profile(profile_name);
     
     run_sys_commands(profile.system_commands);
@@ -823,7 +815,10 @@ bool Install::profile()
     log_info (std::format("Installing packages for greeter {}", greeter_name.toStdString()));
 
     if (pacman_install(Packages::greeter()))
+    {
       run_sys_commands(Profiles::get_greeter(greeter_name).system_commands);
+      run_user_commands(Profiles::get_greeter(greeter_name).user_commands);
+    }
     else
       log_warning("Greeter failed to install, you will likely be in tty");
   }
@@ -836,6 +831,13 @@ void Install::run_sys_commands(const QStringList& commands)
 {
   log_info(std::format("Executing {} system commands", commands.size()));
 
+  ChRootCmd chroot{commands};
+  if (chroot.execute() != CmdSuccess)
+  {
+    log_critical("System command failed");
+  }
+  
+  /*
   for (QStringList::size_type i = 0 ; i < commands.size() ; ++i)
   {
     const auto& cmd = commands[i].toStdString();
@@ -853,6 +855,7 @@ void Install::run_sys_commands(const QStringList& commands)
       log_critical("System command failed");
     }
   }
+  */
 }
 
 
@@ -864,9 +867,10 @@ void Install::run_user_commands(const QStringList& commands)
   {
     log_info("Executing user commands");
 
-    ChRootUserCmd chroot;
-  
-    if (!chroot.execute_commands(username, commands))
+    ChRootCmd chroot{commands, username};
+    
+    if (chroot.execute() != CmdSuccess)
+    //if (!chroot.execute_commands(username, commands))
     {
       log_warning("At least one user command failed");
     }
@@ -969,7 +973,7 @@ bool Install::pacman_install(const PackageSet& packages)
   ChRootCmd install {install_cmd, [this](const std::string_view out)
   {
     log_info(out);
-  }};
+  }, false};
 
   if (const int r = install.execute(); r != CmdSuccess)
   {
@@ -978,4 +982,14 @@ bool Install::pacman_install(const PackageSet& packages)
   }
 
   return true;
+}
+
+
+bool Install::pacman_install(const QStringList& packages)
+{
+  PackageSet ps;
+  for (const auto& p : packages)
+    ps.emplace(Package{p.toStdString()});
+  
+  return pacman_install(ps);
 }

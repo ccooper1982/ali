@@ -10,5 +10,25 @@
     "tty":false,
     "packages":["gdm"],
     "system_commands":["systemctl enable gdm.service"]
+  },
+  {
+    "name":"LightDM GTK",
+    "tty":false,
+    "packages":["lightdm", "lightdm-gtk-greeter", "lightdm-gtk-greeter-settings"],
+    "system_commands":["systemctl enable lightdm.service"]
+  },
+  {
+    "name":"LightDM Slick",
+    "tty":false,
+    "packages":["lightdm", "lightdm-slick-greeter"],
+    "system_commands":
+    [
+      "systemctl enable lightdm.service",
+      "sed -i 's/#greeter-session=.*/greeter-session=lightdm-slick-greeter/g' /etc/lightdm/lightdm.conf",
+      "echo \"[Greeter]\" > /etc/lightdm/slick-greeter.conf",
+      "echo \"background-color=#0077b6\" >> /etc/lightdm/slick-greeter.conf",
+      "echo \"background=/usr/share/backgrounds/arch.png\" >> /etc/lightdm/slick-greeter.conf",
+      "echo \"enable-hidpi=auto\" >> /etc/lightdm/slick-greeter.conf"
+    ]
   }
 ]

@@ -97,6 +97,7 @@ private:
   bool enable_service(const std::string_view name);
   bool copy_files(const fs::path& src, const fs::path& dest, const std::vector<std::string_view>& extensions);
   bool pacman_install(const PackageSet& packages);
+  bool pacman_install(const QStringList& packages);
 };
 
 #endif

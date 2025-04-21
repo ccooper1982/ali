@@ -10,6 +10,11 @@
 
 struct Package
 {
+  Package(const std::string_view name) : Package(QString::fromLocal8Bit(name.data(), name.size()))
+  {
+
+  }
+
   Package(const QString& name) : name(name)
   {
   }
