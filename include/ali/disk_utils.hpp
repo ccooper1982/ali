@@ -10,7 +10,7 @@
 
 
 extern const fs::path HomeMnt;
-extern const fs::path BootMnt;
+//extern const fs::path BootMnt;
 extern const fs::path RootMnt;
 extern const fs::path EfiMnt;
 extern const fs::path FsTabPath;

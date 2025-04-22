@@ -16,7 +16,7 @@ struct MountData
   };
 
   Mount root;
-  Mount boot;
+  Mount efi;
   Mount home;
 };
 

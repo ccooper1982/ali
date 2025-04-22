@@ -21,7 +21,7 @@ If your partitions are not showing, return to the terminal:
 
 <br/>
 
-`/boot`:
+`/efi`:
 - If using an existing EFI partition, set 'Create Filesystem' empty
 - Otherwise, set `Create Filesystem` to `vfat` (FAT32)
 
@@ -76,7 +76,7 @@ static const QStringList SupportedHomeFs =
   "ext4"
 };
 
-static const QStringList SupportedBootFs = 
+static const QStringList SupportedEfiFs = 
 {
   "vfat"  // FAT32
 };
@@ -118,11 +118,11 @@ struct SelectMounts : public QWidget
     m_root_fs = new QComboBox();
     m_root_fs->setMaximumWidth(200);
     
-    // boot
-    m_boot_dev = new QComboBox;
-    m_boot_dev->setMaximumWidth(200);
-    m_boot_fs = new QComboBox;
-    m_boot_fs->setMaximumWidth(200);
+    // efi
+    m_efi_dev = new QComboBox;
+    m_efi_dev->setMaximumWidth(200);
+    m_efi_fs = new QComboBox;
+    m_efi_fs->setMaximumWidth(200);
 
     // home
     m_home_dev = new QComboBox;
@@ -136,9 +136,9 @@ struct SelectMounts : public QWidget
     root_layout->addWidget(m_root_dev);
     root_layout->addWidget(m_root_fs);
 
-    auto boot_layout = new QHBoxLayout;
-    boot_layout->addWidget(m_boot_dev);
-    boot_layout->addWidget(m_boot_fs);
+    auto efi_layout = new QHBoxLayout;
+    efi_layout->addWidget(m_efi_dev);
+    efi_layout->addWidget(m_efi_fs);
 
     auto home_layout = new QHBoxLayout;
     home_layout->addWidget(m_home_dev);
@@ -146,8 +146,8 @@ struct SelectMounts : public QWidget
 
     m_root_fs->addItem("");
     m_root_fs->addItems(SupportedRootFs);
-    m_boot_fs->addItem("");
-    m_boot_fs->addItems(SupportedBootFs);
+    m_efi_fs->addItem("");
+    m_efi_fs->addItems(SupportedEfiFs);
     m_home_fs->addItem("");
     m_home_fs->addItems(SupportedHomeFs);
     
@@ -160,7 +160,7 @@ struct SelectMounts : public QWidget
 
     mounts_layout->addRow("Mount", header_layout);
     mounts_layout->addRow("/", root_layout);
-    mounts_layout->addRow("/boot", boot_layout);
+    mounts_layout->addRow("/efi", efi_layout);
     mounts_layout->addRow("/home", home_layout);
     mounts_layout->addRow("", m_home_to_root);
         
@@ -215,12 +215,12 @@ struct SelectMounts : public QWidget
     });
     
     // boot
-    connect(m_boot_dev, &QComboBox::currentTextChanged, this, [this](const QString val)
+    connect(m_efi_dev, &QComboBox::currentTextChanged, this, [this](const QString val)
     {
       update_mount_data();
     });
 
-    connect(m_boot_fs, &QComboBox::currentTextChanged, this, [this](const QString val)
+    connect(m_efi_fs, &QComboBox::currentTextChanged, this, [this](const QString val)
     {
       update_mount_data();
     });
@@ -250,10 +250,10 @@ struct SelectMounts : public QWidget
     m_mounts.root.fs = m_mounts.root.create_fs ?  m_root_fs->currentText().toStdString() :
                                                   PartitionUtils::get_partition_fs(m_mounts.root.dev);
 
-    m_mounts.boot.dev = m_boot_dev->currentText().toStdString();
-    m_mounts.boot.create_fs = m_boot_fs->currentIndex () != 0;
-    m_mounts.boot.fs = m_mounts.boot.create_fs ?  m_boot_fs->currentText().toStdString() :
-                                                  PartitionUtils::get_partition_fs(m_mounts.boot.dev);
+    m_mounts.efi.dev = m_efi_dev->currentText().toStdString();
+    m_mounts.efi.create_fs = m_efi_fs->currentIndex () != 0;
+    m_mounts.efi.fs = m_mounts.efi.create_fs ?  m_efi_fs->currentText().toStdString() :
+                                                PartitionUtils::get_partition_fs(m_mounts.efi.dev);
 
     
     if (m_home_to_root->isChecked())
@@ -281,9 +281,9 @@ struct SelectMounts : public QWidget
     const auto root_fs = m_mounts.root.fs.empty() ? "None" : QString::fromStdString(m_mounts.root.fs);
     const auto root_create_fs = m_mounts.root.create_fs ? "Yes" : "No";
 
-    const auto boot_dev = QString::fromStdString(m_mounts.boot.dev);
-    const auto boot_fs = m_mounts.boot.fs.empty() ? "None" : QString::fromStdString(m_mounts.boot.fs);
-    const auto boot_create_fs = m_mounts.boot.create_fs ? "Yes" : "No";
+    const auto efi_dev = QString::fromStdString(m_mounts.efi.dev);
+    const auto efi_fs = m_mounts.efi.fs.empty() ? "None" : QString::fromStdString(m_mounts.efi.fs);
+    const auto efi_create_fs = m_mounts.efi.create_fs ? "Yes" : "No";
 
     const auto home_dev = QString::fromStdString(m_mounts.home.dev);
     const auto home_fs = m_mounts.home.fs.empty() ? "None" : QString::fromStdString(m_mounts.home.fs);
@@ -296,21 +296,21 @@ struct SelectMounts : public QWidget
     ss << "|Mount|Device|Filesystem|Create|\n";
     ss << "|:---|:---|:---:|:---:|\n";
     ss << "| / |"     << root_dev << "|"<< root_fs << "|" << root_create_fs << "|\n";
-    ss << "| /boot |" << boot_dev << "|"<< boot_fs << "|" << boot_create_fs << "|\n";
+    ss << "| /efi |"  << efi_dev << "|" << efi_fs << "|"  << efi_create_fs << "|\n";
     ss << "| /home |" << home_dev << "|"<< home_fs << "|" << home_create_fs << "|\n";
 
-    if (root_dev == boot_dev)
+    if (root_dev == efi_dev)
       ss << "<span style=\"color:red;\">/ and /boot cannot be the same partition</span>\n";
-    else if (home_dev == boot_dev)
+    else if (home_dev == efi_dev)
       ss << "<span style=\"color:red;\">/home and /boot cannot be the same partition</span>\n";
     else
     {
       if (root_fs == "None")
         ss << "<span style=\"color:red;\">/ has no filesystem</span>\n";
 
-      if (boot_fs == "None")
+      if (efi_fs == "None")
         ss << "<span style=\"color:red;\">/boot has no filesystem</span>\n";
-      else if (boot_fs != "vfat")
+      else if (efi_fs != "vfat")
         ss << "<span style=\"color:red;\">/boot must be vfat</span>\n";
     }
     
@@ -321,9 +321,9 @@ struct SelectMounts : public QWidget
   }
 
 
-  void add_boot(const QString& dev)
+  void add_efi(const QString& dev)
   {
-    m_boot_dev->addItem(dev);
+    m_efi_dev->addItem(dev);
   }
 
 
@@ -345,8 +345,8 @@ struct SelectMounts : public QWidget
   }
 
 private:
-  QComboBox * m_boot_dev, * m_root_dev, * m_home_dev;
-  QComboBox * m_boot_fs, * m_root_fs, * m_home_fs;
+  QComboBox * m_efi_dev, * m_root_dev, * m_home_dev;
+  QComboBox * m_efi_fs, * m_root_fs, * m_home_fs;
   QCheckBox * m_home_to_root;
   QLabel * m_summary; 
   MountData m_mounts;
@@ -429,7 +429,7 @@ QTableWidget * PartitionsWidget::create_table()
     table->setItem(row, COL_SIZE, item_size);
     ++row;
 
-    m_mounts_widget->add_boot(path);
+    m_mounts_widget->add_efi(path);
     m_mounts_widget->add_home(path);
     m_mounts_widget->add_root(path);
   }
@@ -451,11 +451,11 @@ bool PartitionsWidget::is_valid()
     
   const MountData mounts = m_mounts_widget->get_data();
   const bool root_ok = !mounts.root.dev.empty() && !mounts.root.fs.empty();
-  const bool boot_ok = !mounts.boot.dev.empty() && !mounts.boot.fs.empty();
+  const bool efi_ok = !mounts.efi.dev.empty() && !mounts.efi.fs.empty();
   const bool home_ok = !mounts.home.dev.empty() && !mounts.home.fs.empty();
-  const bool boot_root_same = mounts.root.dev == mounts.boot.dev;
+  const bool efi_root_same = mounts.root.dev == mounts.efi.dev;
   
-  return root_ok && boot_ok && home_ok && !boot_root_same;
+  return root_ok && efi_ok && home_ok && !efi_root_same;
 }
 
 

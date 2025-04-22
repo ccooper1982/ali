@@ -116,7 +116,7 @@ bool Install::filesystems()
     return false;
   }
 
-  bool root{true}, boot{true}, home{true};
+  bool root{true}, efi{true}, home{true};
 
   // wipefs, set partition type, create new fs for root, boot and home if applicable
   if (mounts.root.create_fs)
@@ -129,13 +129,13 @@ bool Install::filesystems()
     }
   }
   
-  if (mounts.boot.create_fs)
+  if (mounts.efi.create_fs)
   {
-    boot = wipe_fs(mounts.boot.dev) && create_filesystem(mounts.boot.dev, mounts.boot.fs);
-    if (boot)
+    efi = wipe_fs(mounts.efi.dev) && create_filesystem(mounts.efi.dev, mounts.efi.fs);
+    if (efi)
     {
-      log_info("Setting boot partition type");
-      set_partition_type<SetPartitionAsEfi>(mounts.boot.dev);
+      log_info("Setting efi partition type");
+      set_partition_type<SetPartitionAsEfi>(mounts.efi.dev);
     }
   }
   
@@ -150,7 +150,7 @@ bool Install::filesystems()
     }
   }
 
-  return root && boot && home;
+  return root && efi && home;
 }
 
 
@@ -195,9 +195,7 @@ bool Install::create_filesystem(const std::string_view part_dev, const std::stri
 // mounting
 bool Install::mount()
 {
-  
-
-  bool mounted_root{false}, mounted_boot{false}, mounted_home{true};
+  bool mounted_root{false}, mounted_efi{false}, mounted_home{true};
 
   const auto [valid, mount_data] = Widgets::partitions()->get_data();
 
@@ -209,10 +207,10 @@ bool Install::mount()
     //      check if device is mounted (i.e. /dev/sda2)? If the device is mounted
     //      elsewhere, we should fail.
 
-    if (PartitionUtils::is_path_mounted(BootMnt.string()))
+    if (PartitionUtils::is_path_mounted(EfiMnt.string()))
     {
-      log_info(std::format("{} is already mounted, unmounting", BootMnt.c_str()));
-      ::umount(BootMnt.c_str());
+      log_info(std::format("{} is already mounted, unmounting", EfiMnt.c_str()));
+      ::umount(EfiMnt.c_str());
     }
 
     if (PartitionUtils::is_path_mounted(RootMnt.string()))
@@ -228,10 +226,10 @@ bool Install::mount()
     }
 
     mounted_root = do_mount(mount_data.root.dev, RootMnt.c_str(), mount_data.root.fs);
-    mounted_boot = do_mount(mount_data.boot.dev, BootMnt.c_str(), mount_data.boot.fs);
+    mounted_efi = do_mount(mount_data.efi.dev, EfiMnt.c_str(), mount_data.efi.fs);
 
     log_info(std::format("Mount of {} -> {} : {}", RootMnt.c_str(), mount_data.root.dev, mounted_root ? "Success" : "Fail"));
-    log_info(std::format("Mount of {} -> {} : {}", BootMnt.c_str(), mount_data.boot.dev, mounted_boot ? "Success" : "Fail"));
+    log_info(std::format("Mount of {} -> {} : {}", EfiMnt.c_str(), mount_data.efi.dev, mounted_efi ? "Success" : "Fail"));
 
     if (mount_data.home.dev != mount_data.root.dev)
     {
@@ -242,7 +240,7 @@ bool Install::mount()
 
   
 
-  return mounted_root && mounted_boot && mounted_home;
+  return mounted_root && mounted_efi && mounted_home;
 }
 
 
@@ -603,15 +601,18 @@ bool Install::boot_loader()
 
   // TODO: systemd-boot
 
+  // TODO if btrfs, install grub-btrfs
   if (!pacman_install({"grub", "efibootmgr", "os-prober"}))
   {
     log_critical("pacman install failed");
   }
   else
   {
-    const std::string cmd_init = std::format("grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB");
+    const std::string install_cmd = std::format("grub-install --target=x86_64-efi --efi-directory=/efi --bootloader-id=GRUB");
+
+    qDebug() << "GRUB install command: " << install_cmd;
     
-    ChRootCmd grub_install{cmd_init, [this](const std::string_view out)
+    ChRootCmd grub_install{install_cmd, [this](const std::string_view out)
     {
       log_info(out);
     }};
@@ -691,7 +692,7 @@ bool Install::prepare_grub_probe()
       {
         // partition can't contain an OS if it's EFI or has no filesystem,
         // and we don't mount any of the partitions of the installed Arch
-        if (!part.is_efi && !part.fs_type.empty() &&  part.dev != mount_data.boot.dev &&
+        if (!part.is_efi && !part.fs_type.empty() &&  part.dev != mount_data.efi.dev &&
                                                       part.dev != mount_data.root.dev && 
                                                       part.dev != mount_data.home.dev)
         {
