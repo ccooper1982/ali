@@ -280,7 +280,7 @@ bool Install::mount()
     if (PartitionUtils::is_path_mounted(HomeMnt.string()))
     {
       log_info(std::format("{} is already mounted, unmounting", HomeMnt.c_str()));
-      ::umount(RootMnt.c_str());
+      ::umount(HomeMnt.c_str());
     }
 
     const bool is_root_btr = mount_data.root.fs == "btrfs";
