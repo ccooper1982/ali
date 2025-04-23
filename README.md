@@ -8,30 +8,37 @@
 
 [ali arch install video](https://github.com/user-attachments/assets/d4bdbd10-80d9-49b7-873f-8b0cd51b9626)
 
-The focus is reliability before adding features, such as desktop environments or additional bootloaders. 
+The focus is reliability before adding features:
 
 ## Current Features
-- Create filesystems (`vfat` for `/boot`, and just `ext4` for `/` at the moment)
-- Ensures `/boot` is FAT32
+- Create filesystems
+  - `vfat` (FAT32) for `/efi`
+  - `ext4` or `btrfs` for `/` and `/home`
+  - When using `btrfs`, subvolumes for `@` and `@home` are created
+- Ensures `/efi` is FAT32
 - Create user account, adding to sudoers if enabled
+- Profiles:
+  - Minimal: no extra packages installed (but can be added manually)
+  - Desktop: Cinnamon, Hyprland
+  - Greeters: GDM, SDDM, LightDM GTK and Slick
 - Locale: keyboard, language, timezone
-- Network: copies live ISO network config (`iwd` and `systemd-networkd`)
+- Network: copies live ISO network config for `iwd` and `systemd-networkd`
 - GRUB: Probe for other OSes (beta, early testing)
 - Validation: prevent install if required
 
 
 ## Limitations
-There are limitations which will be addressed over the coming weeks:
 
 - Does not manage partitions. You must create partitions first
-- Filesystems: only tested with `ext4` on `/`
-- Swap: only option is to enable swap on `zram`
+
+Other limitations which will be addressed over the coming weeks:
+
+- Filesystems: tested only with `ext4` and `btrfs`
+- Swap: only option is to enable/disable swap on `zram`
 - Bootloader
   - Only GRUB
 - Packages
-  - Kernel limited to `linux`
-  - Adding packages by name not implemented yet
-- Network management assumed to be `iwd` (WiFi) and `systemd-networkd`
+  - Kernel limited to `linux`, will add more soon
 
 
 ## Design
@@ -44,6 +51,7 @@ There are limitations which will be addressed over the coming weeks:
 - Limited hardware:
   - Laptop: AMD with integrated GPU within VirtualBox
   - Desktop: Intel i7 with an GTX 1060
+  - Mini PC: Peland4 (Intel CPU and GPU)
 
 To reflect the real live evironment, a custom Arch live ISO is used, created with [archiso](https://wiki.archlinux.org/title/Archiso):
 - It is the same as the [actual](https://wiki.archlinux.org/title/Archiso#Prepare_a_custom_profile) ISO from Arch with additional packages
@@ -59,9 +67,6 @@ The plan is to add an `ali-bin` to the AUR.
 Aside from removing the limitations listed above:
 
 - Bootloader: add `systemd-boot`
-- Profiles:
-  - Minimal: No desktop
-  - Desktop: Not an exhaustive selection
 - Configs:
   - Save install config to file
   - Open install config, to either:
