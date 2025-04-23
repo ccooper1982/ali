@@ -6,7 +6,9 @@
 
 <br/>
 
-[ali arch install video](https://github.com/user-attachments/assets/d4bdbd10-80d9-49b7-873f-8b0cd51b9626)
+Most recent version:
+
+[ali preview](https://youtu.be/oiti9-pb-IM)
 
 The focus is reliability before adding features:
 
