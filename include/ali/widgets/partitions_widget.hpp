@@ -4,6 +4,10 @@
 #include <ali/widgets/content_widget.hpp>
 #include <ali/disk_utils.hpp>
 #include <QString>
+#include <QStringList>
+
+
+extern const QStringList DataFileSystems;
 
 
 struct MountData

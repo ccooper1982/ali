@@ -35,15 +35,21 @@ signals:
   void on_complete(const CompleteStatus);
 
 private:
+  using no_fs_opts = std::string_view;
+
+  enum class MountType {Root, Home, Esp};
+
   void log_info(const std::string_view msg);
   void log_warning(const std::string_view msg);
   void log_critical(const std::string_view msg);
   void log_stage_start(const std::string_view msg);
   void log_stage_end(const std::string_view msg);
     
-  bool filesystems();
+  bool filesystems();  
   bool wipe_fs(const std::string_view dev);
-  bool create_filesystem(const std::string_view dev, const std::string_view fs);
+  bool create_filesystem(const std::string_view part_dev, const std::string_view fs);
+  bool create_btrfs_filesystem(const std::string_view part_dev, const fs::path mount, const MountType type);
+  bool create_btrfs_subvolume(const std::string_view part_dev, const fs::path mount, const std::string_view subvolume);
 
   // TODO not convinced I like this
   template<class Cmd>
@@ -65,7 +71,7 @@ private:
   
 
   bool mount();
-  bool do_mount(const std::string_view dev, const std::string_view path, const std::string_view fs, const bool read_only = false);
+  bool do_mount(const std::string_view dev, const std::string_view path, const std::string_view fs, const std::string_view options = {});
   bool pacman_strap();
   bool swap();
   bool fstab();

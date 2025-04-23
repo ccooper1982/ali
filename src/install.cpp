@@ -107,6 +107,8 @@ void Install::install ()
 // filesystems
 bool Install::filesystems()
 {
+  // TODO after adding btrfs, this function has become a slight mess
+
   const auto [valid, mounts] = Widgets::partitions()->get_data();
 
   // sanity: UI should prevent this
@@ -116,12 +118,21 @@ bool Install::filesystems()
     return false;
   }
 
-  bool root{true}, efi{true}, home{true};
+  const bool create_home_partition = mounts.home.create_fs && mounts.home.dev != mounts.root.dev;
+
+  bool root{false}, efi{true}, home{true};
 
   // wipefs, set partition type, create new fs for root, boot and home if applicable
   if (mounts.root.create_fs)
   {
-    root = wipe_fs(mounts.root.dev) && create_filesystem(mounts.root.dev, mounts.root.fs);
+    if (!wipe_fs(mounts.root.dev))
+      return false;
+
+    if (mounts.root.fs == "btrfs")
+      root = create_btrfs_filesystem(mounts.root.dev, RootMnt, MountType::Root);
+    else if (root)
+      root = create_filesystem(mounts.root.dev, mounts.root.fs);
+
     if (root)
     {
       log_info("Setting root partition type");
@@ -139,15 +150,26 @@ bool Install::filesystems()
     }
   }
   
-  // the UI should ensure create_fs is false if home uses root, but sanity check here
-  if (mounts.home.create_fs && mounts.home.dev != mounts.root.dev)
+  if (create_home_partition)
   {
-    home = wipe_fs(mounts.home.dev) && create_filesystem(mounts.home.dev, mounts.home.fs);
+    if (!wipe_fs(mounts.home.dev))
+      return false;
+    
+    if (mounts.home.fs == "btrfs")
+      home = create_btrfs_filesystem(mounts.home.dev, HomeMnt, MountType::Home);
+    else if (home)
+      home = create_filesystem(mounts.home.dev, mounts.home.fs);
+
     if (home)
     {
       log_info("Setting home partition type");
       set_partition_type<SetPartitionAsLinuxHome>(mounts.home.dev);  
     }
+  }
+  else
+  {
+    // create subvol for @home, which is mounted to root
+    home = create_btrfs_subvolume(mounts.root.dev, RootMnt, "@home");
   }
 
   return root && efi && home;
@@ -162,13 +184,50 @@ bool Install::wipe_fs(const std::string_view dev)
 }
 
 
+bool Install::create_btrfs_filesystem(const std::string_view part_dev, const fs::path mount, const MountType type)
+{
+  // for btrfs, we make btrfs, mount it without options, create subvolume, then unmount.
+  // the mount step following this function will mount with appropriate btrfs options
+  // so that fstab is created correctly
+
+  bool ok{false};
+
+  log_info(std::format("Creating btrfs on {}", part_dev));
+
+  if (type == MountType::Esp)
+    log_critical("Invalid mount type for BTRFS volume. Must be home or root");
+  else
+  {
+    if (CreateBtrFs cmd{part_dev}; cmd.execute() == CmdSuccess)
+      ok = create_btrfs_subvolume(part_dev, mount, type == MountType::Root ? "@" : "@home");
+  }
+
+  return ok;
+}
+
+
+bool Install::create_btrfs_subvolume(const std::string_view part_dev, const fs::path mount, const std::string_view subvolume)
+{
+  log_info(std::format("Creating subvolume {} on {}", subvolume, mount.string()));
+
+  bool ok {false};
+
+  if (do_mount(part_dev, mount.string(), "btrfs", no_fs_opts{}))
+  {
+    CreateBtrVolume cmd_volume{mount, subvolume};
+    ok =  cmd_volume.execute() == CmdSuccess &&
+          ::umount(mount.string().data()) == 0;
+  }
+
+  return ok;
+}
+
+
 bool Install::create_filesystem(const std::string_view part_dev, const std::string_view fs)
 {
-  
-
   log_info(std::format("Creating {} on {}", fs, part_dev));
 
-  int res{0};
+  int res {CmdFail};
   
   if (fs == "ext4")
   {
@@ -181,14 +240,13 @@ bool Install::create_filesystem(const std::string_view part_dev, const std::stri
     res = cmd.execute();
   }
 
-  const bool created = res == CmdSuccess;
-
-  if (!created)
+  if (res != CmdSuccess)
+  {
     qCritical() << "Failed to create filesystem: " << strerror(res);
-
-  
-
-  return created;
+    return false;
+  }
+  else
+    return true;
 }
 
 
@@ -225,33 +283,33 @@ bool Install::mount()
       ::umount(RootMnt.c_str());
     }
 
-    mounted_root = do_mount(mount_data.root.dev, RootMnt.c_str(), mount_data.root.fs);
+    const bool is_root_btr = mount_data.root.fs == "btrfs";
+    const bool is_home_btr = mount_data.home.fs == "btrfs";
+
+    mounted_root = do_mount(mount_data.root.dev, RootMnt.c_str(), mount_data.root.fs, is_root_btr ? "subvol=@" : no_fs_opts{});
     mounted_efi = do_mount(mount_data.efi.dev, EfiMnt.c_str(), mount_data.efi.fs);
 
     log_info(std::format("Mount of {} -> {} : {}", RootMnt.c_str(), mount_data.root.dev, mounted_root ? "Success" : "Fail"));
     log_info(std::format("Mount of {} -> {} : {}", EfiMnt.c_str(), mount_data.efi.dev, mounted_efi ? "Success" : "Fail"));
 
-    if (mount_data.home.dev != mount_data.root.dev)
+    // if btrfs, we still want to mount home, even if it's on the same partition as root, because it's a subvolume
+    if (mount_data.root.fs == "btrfs" || mount_data.home.dev != mount_data.root.dev)
     {
-      mounted_home = do_mount(mount_data.home.dev, HomeMnt.c_str(), mount_data.home.fs);
+      mounted_home = do_mount(mount_data.home.dev, HomeMnt.c_str(), mount_data.home.fs, is_home_btr ? "subvol=@home" : no_fs_opts{});
       log_info(std::format("Mount of {} -> {} : {}", HomeMnt.c_str(), mount_data.home.dev, mounted_home ? "Success" : "Fail"));
     }
   }
-
-  
 
   return mounted_root && mounted_efi && mounted_home;
 }
 
 
-bool Install::do_mount(const std::string_view dev, const std::string_view path, const std::string_view fs, const bool read_only)
+bool Install::do_mount(const std::string_view dev, const std::string_view path, const std::string_view fs, const std::string_view options)
 {
-  
-
   if (!fs::exists(path))
     fs::create_directory(path);
 
-  const int r = ::mount(dev.data(), path.data(), fs.data(), read_only ? MS_RDONLY : 0, nullptr) ;
+  const int r = ::mount(dev.data(), path.data(), fs.data(), 0, options.data()) ;
   
   if (r != 0)
     log_critical(std::format("do_mount(): {} {}", path, ::strerror(errno)));
@@ -809,10 +867,13 @@ bool Install::profile()
     run_sys_commands(profile.system_commands);
     run_user_commands(profile.user_commands);
 
-    log_info (std::format("Installing packages for greeter {}", greeter_name.toStdString()));
-
-    if (pacman_install(Packages::greeter()))
+    // greeter, if any
+    if (Packages::greeter().empty())
+      log_info("No greeter to install");
+    else if (pacman_install(Packages::greeter()))
     {
+      log_info (std::format("Installing packages for greeter {}", greeter_name.toStdString()));
+
       run_sys_commands(Profiles::get_greeter(greeter_name).system_commands);
       run_user_commands(Profiles::get_greeter(greeter_name).user_commands);
     }

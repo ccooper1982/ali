@@ -66,15 +66,11 @@ Use `fdisk <dev>` or `cfdisk <dev>`.
 )!";
 
 
-static const QStringList SupportedRootFs = 
-{
-  "ext4"
-};
+const QStringList DataFileSystems = {"ext4", "btrfs"};
 
-static const QStringList SupportedHomeFs = 
-{
-  "ext4"
-};
+
+static const QStringList SupportedRootFs = DataFileSystems;
+static const QStringList SupportedHomeFs = DataFileSystems;
 
 static const QStringList SupportedEfiFs = 
 {
@@ -309,9 +305,9 @@ struct SelectMounts : public QWidget
         ss << "<span style=\"color:red;\">/ has no filesystem</span>\n";
 
       if (efi_fs == "None")
-        ss << "<span style=\"color:red;\">/boot has no filesystem</span>\n";
+        ss << "<span style=\"color:red;\">/efi has no filesystem</span>\n";
       else if (efi_fs != "vfat")
-        ss << "<span style=\"color:red;\">/boot must be vfat</span>\n";
+        ss << "<span style=\"color:red;\">/efi must be vfat</span>\n";
     }
     
     if (home_fs != root_fs && home_fs.isEmpty())

@@ -34,7 +34,7 @@ struct ProfileSelect : public QWidget
     
     m_greeter = new QComboBox;
     m_greeter->setFixedWidth(200);
-    m_greeter->addItems({"None (tty)", "sddm", "gdm"});
+    //m_greeter->addItems({"None (tty)", "sddm", "gdm"});
 
     m_layout->addRow("Profile", m_profile);
     m_layout->addRow("Greeter", m_greeter);
@@ -49,9 +49,13 @@ struct ProfileSelect : public QWidget
       profile_selection_changed(name);
     });
 
-    connect(m_greeter, &QComboBox::currentTextChanged, this, [this](const QString& name)
+    connect(m_greeter, &QComboBox::currentTextChanged, this, [this](const QString&)
     {
-      if (!name.isEmpty())
+      const QString name = get_greeter_name();
+      
+      if (name.isEmpty())
+        Packages::set_greeter_packages({}); // None
+      else
         Packages::set_greeter_packages(Profiles::get_greeter(name).packages);
     });
     
@@ -90,7 +94,8 @@ struct ProfileSelect : public QWidget
 
   QString get_greeter_name() const
   {
-    return m_greeter->currentText();
+    // index is "none" which isn't in greeters.json, so return empty
+    return m_greeter->currentIndex() == 0 ? "" : m_greeter->currentText();
   }
 
 private:
@@ -110,7 +115,7 @@ private:
       m_packages->setPlainText(profile.packages.join('\n'));
       m_greeter->clear();
       
-      m_greeter->addItem(""); // for "None" option
+      m_greeter->addItem("None"); // for "None" option
       m_greeter->addItems(Profiles::get_greeter_names(m_tty));
 
       m_commands->clear();

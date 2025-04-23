@@ -265,7 +265,7 @@ struct SetShell : public ChRootCmd
 };
 
 
-// Create filesystem
+// Filesystems
 template<class FS>
 struct CreateFilesystem : public Command
 {
@@ -278,9 +278,15 @@ private:
   std::string dev;
 };
 
+
 struct Ext4
 {
   static constexpr char cmd[] = "ext4";
+};
+
+struct BtrFs
+{
+  static constexpr char cmd[] = "btrfs";
 };
 
 struct Fat32
@@ -290,6 +296,18 @@ struct Fat32
 
 using CreateExt4 = CreateFilesystem<Ext4>;
 using CreateFat32 = CreateFilesystem<Fat32>;
+using CreateBtrFs = CreateFilesystem<BtrFs>;
+
+
+// BTR
+struct CreateBtrVolume : public Command
+{
+  CreateBtrVolume(const fs::path mount, const std::string_view sub_volume)
+    : Command(std::format("btrfs subvolume create {}/{}", mount.string(), sub_volume))
+  {
+    qDebug() << std::format("btrfs subvolume create {}/{}", mount.string(), sub_volume);
+  }
+};
 
 
 // set partition type
