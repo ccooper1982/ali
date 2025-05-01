@@ -1,0 +1,52 @@
+
+# Maintainer: TODO
+
+# pkgname=ali-bin
+# pkgver=0.1
+# pkgrel=1
+# pkgdesc='Arch installer, with a Qt6 UI in openbox'
+# arch=(x86_64)
+# url='https://github.com/ccooper1982/ali/'
+# license=('0BSD')
+# depends=(
+#   'hsetroot'
+#   'libxcb'  
+#   'lshw'
+#   'openbox'
+#   'qt6-base'
+#   'ttf-liberation'
+#   'xcb-util-cursor'
+#   'xorg-server' 
+#   'xorg-xinit'
+#   'xcb-util'
+#   'xwallpaper'
+#   'xcompmgr'
+# )
+# optdepends=()
+# conflicts=()
+
+# #install='ali.install'
+# source=("git+https://github.com/ccooper1982/ali?#tag=$pkgver"
+#         ali-bin::"https://github.com/ccooper1982/ali/releases/download/$pkgver/ali"
+#       )
+
+# sha256sums=('SKIP'
+#             'SKIP')
+
+# package() {
+#   # note: this is called within $srcdir
+
+#   root_base=archiso/default/airootfs/root
+#   install_base=/usr/bin/ali
+
+#   echo $pkgdir
+
+#   echo 'Creating target dir'
+#   mkdir /usr/bin/ali 
+
+#   install -m 700 ali-bin $install_base
+#   mv /usr/bin/ali/ali-bin $install_base/ali
+
+#   cp -r profiles $install_base
+#   cp $root_base/{.xinitrc,.Xauthority,.config,.wallpapers} $install_base
+# }

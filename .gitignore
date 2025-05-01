@@ -1,2 +1,5 @@
 archiso/iso/*
 archiso/default/airootfs/root/ali
+package/*
+!PKGBUILD
+!package/scripts
